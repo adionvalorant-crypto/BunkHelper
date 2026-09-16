@@ -3,17 +3,22 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>BunkHelper Portal</title>
+  <title>BunkHelper - Student Attendance & Timetable Portal</title>
   <script src="https://cdn.tailwindcss.com"></script>
+  <!-- OCR Library for Image Parsing -->
+  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
 </head>
-<body class="bg-slate-900 text-slate-100 min-h-screen font-sans">
+<body class="bg-slate-950 text-slate-100 min-h-screen font-sans">
 
   <!-- LOGIN SCREEN -->
   <div id="auth-screen" class="flex flex-col items-center justify-center min-h-screen p-4">
-    <div class="bg-slate-800 border border-slate-700 p-8 rounded-2xl shadow-2xl text-center max-w-md w-full">
-      <h1 class="text-3xl font-bold mb-2 text-indigo-400">BunkHelper Portal</h1>
-      <p class="text-slate-400 mb-8">Manage your timetable & track attendance automatically.</p>
-      <button id="login-btn" class="w-full py-3 px-6 bg-indigo-600 hover:bg-indigo-500 font-semibold rounded-xl transition shadow-lg flex items-center justify-center gap-3">
+    <div class="bg-slate-900 border border-slate-800 p-8 rounded-2xl shadow-2xl text-center max-w-md w-full">
+      <div class="inline-flex items-center justify-center w-16 h-16 bg-indigo-600/20 text-indigo-400 rounded-2xl mb-4 border border-indigo-500/30">
+        <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path></svg>
+      </div>
+      <h1 class="text-3xl font-bold mb-2 text-indigo-400">BunkHelper</h1>
+      <p class="text-slate-400 mb-8 text-sm">Upload timetable screenshots, track attendance, and calculate safe bunks automatically.</p>
+      <button id="login-btn" class="w-full py-3.5 px-6 bg-indigo-600 hover:bg-indigo-500 font-semibold rounded-xl transition shadow-lg flex items-center justify-center gap-3">
         <svg class="w-5 h-5" viewBox="0 0 24 24"><path fill="currentColor" d="M12.545,10.239v3.821h5.445c-0.712,2.315-2.647,3.972-5.445,3.972c-3.332,0-6.033-2.701-6.033-6.032s2.701-6.032,6.033-6.032c1.498,0,2.866,0.549,3.921,1.453l2.814-2.814C17.503,2.988,15.139,2,12.545,2C7.021,2,2.543,6.477,2.543,12s4.478,10,10.002,10c8.396,0,10.249-7.85,9.426-11.761H12.545z"/></svg>
         Sign in with Google
       </button>
@@ -22,56 +27,178 @@
 
   <!-- MAIN APP SCREEN -->
   <div id="app-screen" class="hidden min-h-screen flex flex-col">
-    <header class="bg-slate-800 border-b border-slate-700 px-6 py-4 flex justify-between items-center">
-      <h2 class="text-xl font-bold text-indigo-400">BunkHelper Dashboard</h2>
+    <header class="bg-slate-900 border-b border-slate-800 px-6 py-4 flex justify-between items-center sticky top-0 z-50 backdrop-blur-md bg-slate-900/80">
+      <div class="flex items-center gap-3">
+        <div class="p-2 bg-indigo-600/20 text-indigo-400 rounded-lg border border-indigo-500/30">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path></svg>
+        </div>
+        <h2 class="text-xl font-bold text-indigo-400">BunkHelper</h2>
+      </div>
       <div class="flex items-center gap-4">
+        <div class="flex items-center gap-2 bg-slate-950 px-3 py-1.5 rounded-lg border border-slate-800 text-xs">
+          <span class="text-slate-400">Target:</span>
+          <select id="target-threshold" class="bg-transparent text-indigo-400 font-bold focus:outline-none">
+            <option value="75">75%</option>
+            <option value="80">80%</option>
+            <option value="85">85%</option>
+          </select>
+        </div>
         <span id="user-name" class="text-sm font-medium text-slate-300"></span>
-        <button id="logout-btn" class="text-sm bg-slate-700 hover:bg-slate-600 px-3 py-1.5 rounded-lg border border-slate-600">Logout</button>
+        <button id="logout-btn" class="text-sm bg-slate-800 hover:bg-slate-700 px-3.5 py-1.5 rounded-lg border border-slate-700 transition">Logout</button>
       </div>
     </header>
 
-    <main class="flex-1 p-6 max-w-6xl mx-auto w-full grid grid-cols-1 md:grid-cols-2 gap-8">
+    <main class="flex-1 p-6 max-w-7xl mx-auto w-full space-y-8">
       
-      <!-- TIMETABLE SECTION -->
-      <section class="bg-slate-800 border border-slate-700 rounded-2xl p-6">
-        <h3 class="text-lg font-semibold text-slate-200 mb-4">Add Class to Timetable</h3>
-        <form id="timetable-form" class="space-y-4">
-          <input type="text" id="subject-input" placeholder="Subject Name (e.g. Law / Math)" required class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2.5 text-sm">
-          <div class="grid grid-cols-2 gap-4">
-            <select id="day-input" class="bg-slate-900 border border-slate-700 rounded-lg p-2.5 text-sm">
-              <option>Monday</option><option>Tuesday</option><option>Wednesday</option><option>Thursday</option><option>Friday</option><option>Saturday</option>
-            </select>
-            <input type="time" id="time-input" required class="bg-slate-900 border border-slate-700 rounded-lg p-2.5 text-sm">
-          </div>
-          <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-500 py-2.5 rounded-lg font-medium text-sm">Save Subject</button>
-        </form>
-
-        <hr class="border-slate-700 my-6">
-
-        <h3 class="text-lg font-semibold text-slate-200 mb-4">Your Saved Timetable</h3>
-        <ul id="timetable-list" class="space-y-2"></ul>
+      <!-- TODAY'S SCHEDULE BANNER -->
+      <section class="bg-gradient-to-r from-indigo-900/40 via-slate-900 to-slate-900 border border-indigo-500/20 p-5 rounded-2xl flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+        <div>
+          <span id="today-date" class="text-xs font-semibold text-indigo-400 uppercase tracking-wider">Today's Schedule</span>
+          <h3 id="today-day-title" class="text-xl font-bold text-slate-100 mt-0.5">Classes Scheduled</h3>
+        </div>
+        <div id="today-classes-list" class="flex flex-wrap gap-2"></div>
       </section>
 
-      <!-- ATTENDANCE SECTION -->
-      <section class="bg-slate-800 border border-slate-700 rounded-2xl p-6">
-        <h3 class="text-lg font-semibold text-slate-200 mb-4">Log Attendance</h3>
-        <form id="attendance-form" class="space-y-4">
-          <input type="text" id="att-subject" placeholder="Subject Name" required class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2.5 text-sm">
-          <div class="grid grid-cols-2 gap-4">
-            <input type="date" id="att-date" required class="bg-slate-900 border border-slate-700 rounded-lg p-2.5 text-sm">
-            <select id="att-status" class="bg-slate-900 border border-slate-700 rounded-lg p-2.5 text-sm">
-              <option value="Present">Present</option>
-              <option value="Absent">Absent</option>
-            </select>
-          </div>
-          <button type="submit" class="w-full bg-emerald-600 hover:bg-emerald-500 py-2.5 rounded-lg font-medium text-sm">Log Attendance</button>
-        </form>
+      <!-- OVERVIEW ANALYTICS CARDS -->
+      <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div class="bg-slate-900 border border-slate-800 p-5 rounded-2xl">
+          <p class="text-slate-400 text-xs font-semibold uppercase tracking-wider">Overall Attendance</p>
+          <p id="overall-percentage" class="text-3xl font-extrabold text-indigo-400 mt-2">0%</p>
+        </div>
+        <div class="bg-slate-900 border border-slate-800 p-5 rounded-2xl">
+          <p class="text-slate-400 text-xs font-semibold uppercase tracking-wider">Total Classes Logged</p>
+          <p id="total-classes" class="text-3xl font-extrabold text-slate-100 mt-2">0</p>
+        </div>
+        <div class="bg-slate-900 border border-slate-800 p-5 rounded-2xl">
+          <p class="text-slate-400 text-xs font-semibold uppercase tracking-wider">Classes Attended</p>
+          <p id="total-attended" class="text-3xl font-extrabold text-emerald-400 mt-2">0</p>
+        </div>
+        <div class="bg-slate-900 border border-slate-800 p-5 rounded-2xl">
+          <p class="text-slate-400 text-xs font-semibold uppercase tracking-wider">Classes Missed</p>
+          <p id="total-missed" class="text-3xl font-extrabold text-rose-400 mt-2">0</p>
+        </div>
+      </div>
 
-        <hr class="border-slate-700 my-6">
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        
+        <!-- ATTENDANCE TRACKER & BUNK CALCULATOR -->
+        <div class="lg:col-span-2 space-y-8">
+          
+          <!-- LOG ATTENDANCE FORM -->
+          <section class="bg-slate-900 border border-slate-800 rounded-2xl p-6">
+            <h3 class="text-lg font-semibold text-slate-100 mb-4 flex items-center gap-2">
+              <svg class="w-5 h-5 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+              Log Class Attendance
+            </h3>
+            <form id="attendance-form" class="grid grid-cols-1 md:grid-cols-5 gap-3">
+              <input type="text" id="att-subject" placeholder="Subject Name" required class="bg-slate-950 border border-slate-800 rounded-xl p-3 text-sm focus:outline-none focus:border-indigo-500">
+              <input type="date" id="att-date" required class="bg-slate-950 border border-slate-800 rounded-xl p-3 text-sm focus:outline-none focus:border-indigo-500">
+              <select id="att-status" class="bg-slate-950 border border-slate-800 rounded-xl p-3 text-sm focus:outline-none focus:border-indigo-500">
+                <option value="Present">Present</option>
+                <option value="Absent">Absent</option>
+                <option value="Cancelled">Class Cancelled</option>
+              </select>
+              <select id="att-type" class="bg-slate-950 border border-slate-800 rounded-xl p-3 text-sm focus:outline-none focus:border-indigo-500">
+                <option value="Regular">Regular</option>
+                <option value="Rescheduled">Rescheduled</option>
+                <option value="Extra">Extra Lecture</option>
+              </select>
+              <button type="submit" class="bg-emerald-600 hover:bg-emerald-500 font-medium py-3 rounded-xl text-sm transition md:col-span-5 lg:col-span-1">Record</button>
+            </form>
+          </section>
 
-        <h3 class="text-lg font-semibold text-slate-200 mb-4">Attendance History</h3>
-        <ul id="attendance-list" class="space-y-2"></ul>
-      </section>
+          <!-- SUBJECT ANALYTICS & BUNK CALCULATOR -->
+          <section class="bg-slate-900 border border-slate-800 rounded-2xl p-6">
+            <h3 class="text-lg font-semibold text-slate-100 mb-6">Subject Attendance & Bunk Advisor</h3>
+            <div id="subject-analytics" class="space-y-4">
+              <p class="text-slate-500 text-sm italic">No attendance entries recorded yet.</p>
+            </div>
+          </section>
+
+          <!-- LOGGED HISTORY TABLE -->
+          <section class="bg-slate-900 border border-slate-800 rounded-2xl p-6">
+            <h3 class="text-lg font-semibold text-slate-100 mb-4">Recent Attendance Logs</h3>
+            <div class="overflow-x-auto">
+              <table class="w-full text-left text-sm text-slate-300">
+                <thead class="bg-slate-950 text-slate-400 text-xs uppercase border-b border-slate-800">
+                  <tr>
+                    <th class="p-3">Subject</th>
+                    <th class="p-3">Date</th>
+                    <th class="p-3">Type</th>
+                    <th class="p-3">Status</th>
+                    <th class="p-3 text-right">Action</th>
+                  </tr>
+                </thead>
+                <tbody id="attendance-history" class="divide-y divide-slate-800/50"></tbody>
+              </table>
+            </div>
+          </section>
+
+        </div>
+
+        <!-- TIMETABLE MANAGEMENT, PRESETS & OCR -->
+        <div class="space-y-8">
+          
+          <!-- AUTOMATIC SCREENSHOT PARSER -->
+          <section class="bg-slate-900 border border-slate-800 rounded-2xl p-6">
+            <h3 class="text-lg font-semibold text-slate-100 mb-2 flex items-center gap-2">
+              <svg class="w-5 h-5 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+              Upload Timetable Screenshot
+            </h3>
+            <p class="text-slate-400 text-xs mb-4">Automatically extract schedule details directly from an image or photo.</p>
+            
+            <input type="file" id="ocr-file-input" accept="image/*" class="hidden">
+            <button id="upload-img-btn" class="w-full py-3 bg-slate-950 hover:bg-slate-800 border border-dashed border-slate-700 rounded-xl text-sm text-indigo-400 font-medium transition flex items-center justify-center gap-2">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path></svg>
+              Choose Screenshot Image
+            </button>
+            <p id="ocr-status" class="text-xs text-slate-400 mt-2 italic text-center"></p>
+          </section>
+
+          <!-- PRESETS SELECTOR -->
+          <section class="bg-slate-900 border border-slate-800 rounded-2xl p-6">
+            <h3 class="text-lg font-semibold text-slate-100 mb-2 flex items-center gap-2">
+              <svg class="w-5 h-5 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path></svg>
+              Load Course Timetable Preset
+            </h3>
+            <div class="flex gap-2 mt-4">
+              <select id="preset-selector" class="flex-1 bg-slate-950 border border-slate-800 rounded-xl p-3 text-sm focus:outline-none focus:border-indigo-500">
+                <option value="bba_llb">BBA LLB (Law)</option>
+                <option value="cs_eng">B.Tech CS (Engineering)</option>
+              </select>
+              <button id="apply-preset-btn" class="bg-indigo-600 hover:bg-indigo-500 px-4 py-3 rounded-xl text-sm font-medium transition">Load</button>
+            </div>
+          </section>
+
+          <!-- MANUAL TIMETABLE ENTRY -->
+          <section class="bg-slate-900 border border-slate-800 rounded-2xl p-6">
+            <h3 class="text-lg font-semibold text-slate-100 mb-4 flex items-center gap-2">
+              <svg class="w-5 h-5 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+              Add Class Manually
+            </h3>
+            <form id="timetable-form" class="space-y-4">
+              <input type="text" id="subject-input" placeholder="Subject Name" required class="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-sm focus:outline-none focus:border-indigo-500">
+              <div class="grid grid-cols-2 gap-4">
+                <select id="day-input" class="bg-slate-950 border border-slate-800 rounded-xl p-3 text-sm focus:outline-none focus:border-indigo-500">
+                  <option>Monday</option><option>Tuesday</option><option>Wednesday</option><option>Thursday</option><option>Friday</option><option>Saturday</option>
+                </select>
+                <input type="time" id="time-input" required class="bg-slate-950 border border-slate-800 rounded-xl p-3 text-sm focus:outline-none focus:border-indigo-500">
+              </div>
+              <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-500 py-3 rounded-xl font-medium text-sm transition">Add Subject</button>
+            </form>
+          </section>
+
+          <!-- WEEKLY SCHEDULE DISPLAY -->
+          <section class="bg-slate-900 border border-slate-800 rounded-2xl p-6">
+            <h3 class="text-lg font-semibold text-slate-100 mb-4">Weekly Timetable</h3>
+            <div id="timetable-list" class="space-y-4">
+              <p class="text-slate-500 text-sm italic">No classes added to schedule.</p>
+            </div>
+          </section>
+
+        </div>
+
+      </div>
 
     </main>
   </div>
@@ -79,7 +206,7 @@
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
     import { getAuth, setPersistence, browserLocalPersistence, signInWithPopup, GoogleAuthProvider, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
-    import { getFirestore, collection, addDoc, query, where, onSnapshot } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+    import { getFirestore, collection, addDoc, deleteDoc, doc, query, where, onSnapshot } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
     const firebaseConfig = {
       apiKey: "AIzaSyDnneTFty97_4QmcRFOV58AqDUTmzwqtLo",
@@ -95,6 +222,25 @@
     const auth = getAuth(app);
     const db = getFirestore(app);
     let currentUser = null;
+    let selectedTarget = 75;
+
+    const PRESETS = {
+      bba_llb: [
+        { subject: "Constitutional Law", day: "Monday", time: "09:00" },
+        { subject: "Law of Torts", day: "Monday", time: "11:00" },
+        { subject: "Managerial Economics", day: "Tuesday", time: "10:00" },
+        { subject: "Constitutional Law", day: "Wednesday", time: "09:00" },
+        { subject: "Legal Methods", day: "Thursday", time: "11:00" },
+        { subject: "Contract Law", day: "Friday", time: "10:00" }
+      ],
+      cs_eng: [
+        { subject: "Data Structures", day: "Monday", time: "09:30" },
+        { subject: "Linear Algebra", day: "Tuesday", time: "11:00" },
+        { subject: "Operating Systems", day: "Wednesday", time: "10:00" },
+        { subject: "Data Structures", day: "Thursday", time: "09:30" },
+        { subject: "Database Systems", day: "Friday", time: "14:00" }
+      ]
+    };
 
     const authScreen = document.getElementById('auth-screen');
     const appScreen = document.getElementById('app-screen');
@@ -128,11 +274,89 @@
 
     document.getElementById('logout-btn').onclick = () => signOut(auth);
 
+    document.getElementById('target-threshold').onchange = (e) => {
+      selectedTarget = parseInt(e.target.value, 10);
+      loadUserData();
+    };
+
+    // OCR Image Scanner Trigger
+    const ocrFileInput = document.getElementById('ocr-file-input');
+    const ocrStatus = document.getElementById('ocr-status');
+
+    document.getElementById('upload-img-btn').onclick = () => ocrFileInput.click();
+
+    ocrFileInput.onchange = async (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      ocrStatus.textContent = "Scanning screenshot text...";
+      try {
+        const worker = await Tesseract.createWorker('eng');
+        const ret = await worker.recognize(file);
+        await worker.terminate();
+
+        const text = ret.data.text;
+        ocrStatus.textContent = "Parsing schedule days and times...";
+
+        const days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+        const lines = text.split('\n');
+        let currentDay = "Monday";
+        let addedCount = 0;
+
+        for (let line of lines) {
+          line = line.trim();
+          const foundDay = days.find(d => line.toLowerCase().includes(d.toLowerCase()));
+          if (foundDay) {
+            currentDay = foundDay;
+            continue;
+          }
+
+          const timeMatch = line.match(/(\d{1,2}[:.]\d{2})/);
+          if (timeMatch && line.length > 5) {
+            const timeStr = timeMatch[1].replace('.', ':');
+            const subjectCandidate = line.replace(timeMatch[0], '').replace(/[^a-zA-Z\s]/g, '').trim();
+
+            if (subjectCandidate.length > 2) {
+              await addDoc(collection(db, "timetables"), {
+                uid: currentUser.uid,
+                subject: subjectCandidate,
+                day: currentDay,
+                time: timeStr.padStart(5, '0')
+              });
+              addedCount++;
+            }
+          }
+        }
+
+        ocrStatus.textContent = addedCount > 0 ? `Successfully extracted ${addedCount} classes!` : "Could not identify distinct classes. Try adding manually or loading a preset.";
+      } catch (err) {
+        console.error("OCR Error:", err);
+        ocrStatus.textContent = "Failed to scan image.";
+      }
+    };
+
+    // Preset Loader
+    document.getElementById('apply-preset-btn').onclick = async () => {
+      const presetKey = document.getElementById('preset-selector').value;
+      const items = PRESETS[presetKey];
+      if (confirm(`Load preset schedule? This will add ${items.length} classes to your timetable.`)) {
+        for (const item of items) {
+          await addDoc(collection(db, "timetables"), {
+            uid: currentUser.uid,
+            subject: item.subject,
+            day: item.day,
+            time: item.time
+          });
+        }
+      }
+    };
+
+    // Form Submissions
     document.getElementById('timetable-form').onsubmit = async (e) => {
       e.preventDefault();
       await addDoc(collection(db, "timetables"), {
         uid: currentUser.uid,
-        subject: document.getElementById('subject-input').value,
+        subject: document.getElementById('subject-input').value.trim(),
         day: document.getElementById('day-input').value,
         time: document.getElementById('time-input').value
       });
@@ -143,38 +367,164 @@
       e.preventDefault();
       await addDoc(collection(db, "attendance"), {
         uid: currentUser.uid,
-        subject: document.getElementById('att-subject').value,
+        subject: document.getElementById('att-subject').value.trim(),
         date: document.getElementById('att-date').value,
-        status: document.getElementById('att-status').value
+        status: document.getElementById('att-status').value,
+        type: document.getElementById('att-type').value
       });
       e.target.reset();
     };
 
+    window.deleteItem = async (collectionName, docId) => {
+      if (confirm("Are you sure you want to delete this record?")) {
+        await deleteDoc(doc(db, collectionName, docId));
+      }
+    };
+
     function loadUserData() {
+      const todayName = new Date().toLocaleDateString('en-US', { weekday: 'Long' });
+      document.getElementById('today-date').textContent = `Today is ${todayName}`;
+
+      // Timetable Tracker
       const ttQuery = query(collection(db, "timetables"), where("uid", "==", currentUser.uid));
       onSnapshot(ttQuery, (snapshot) => {
         const list = document.getElementById('timetable-list');
+        const todayContainer = document.getElementById('today-classes-list');
         list.innerHTML = '';
-        snapshot.forEach((doc) => {
-          const item = doc.data();
-          list.innerHTML += `<li class="p-3 bg-slate-900 rounded-lg flex justify-between text-sm">
-            <span><strong>${item.subject}</strong> (${item.day})</span>
-            <span class="text-indigo-400">${item.time}</span>
-          </li>`;
+        todayContainer.innerHTML = '';
+        
+        if (snapshot.empty) {
+          list.innerHTML = '<p class="text-slate-500 text-sm italic">No classes added to schedule.</p>';
+          todayContainer.innerHTML = '<span class="text-xs text-slate-500 italic">No classes scheduled for today.</span>';
+          return;
+        }
+
+        const days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+        const grouped = {};
+        let todayClassesFound = false;
+
+        snapshot.forEach((docSnap) => {
+          const data = docSnap.data();
+          if (!grouped[data.day]) grouped[data.day] = [];
+          grouped[data.day].push({ id: docSnap.id, ...data });
+
+          if (data.day === todayName) {
+            todayClassesFound = true;
+            todayContainer.innerHTML += `<span class="px-3 py-1.5 bg-indigo-500/10 border border-indigo-500/30 text-indigo-300 rounded-lg text-xs font-semibold">${data.subject} (${data.time})</span>`;
+          }
+        });
+
+        if (!todayClassesFound) {
+          todayContainer.innerHTML = '<span class="text-xs text-slate-500 italic">No classes scheduled for today.</span>';
+        }
+
+        days.forEach((day) => {
+          if (grouped[day] && grouped[day].length > 0) {
+            let dayHtml = `<div class="border-b border-slate-800/80 pb-3"><h4 class="text-indigo-400 font-semibold text-xs uppercase mb-2">${day}</h4><div class="space-y-2">`;
+            grouped[day].forEach((item) => {
+              dayHtml += `<div class="p-3 bg-slate-950 rounded-xl flex justify-between items-center text-sm border border-slate-800">
+                <span>${item.subject}</span>
+                <div class="flex items-center gap-3">
+                  <span class="text-xs text-indigo-300 font-mono">${item.time}</span>
+                  <button onclick="deleteItem('timetables', '${item.id}')" class="text-slate-600 hover:text-rose-400 transition">&times;</button>
+                </div>
+              </div>`;
+            });
+            dayHtml += `</div></div>`;
+            list.innerHTML += dayHtml;
+          }
         });
       });
 
+      // Attendance Analytics
       const attQuery = query(collection(db, "attendance"), where("uid", "==", currentUser.uid));
       onSnapshot(attQuery, (snapshot) => {
-        const list = document.getElementById('attendance-list');
-        list.innerHTML = '';
-        snapshot.forEach((doc) => {
-          const item = doc.data();
-          const badgeClass = item.status === 'Present' ? 'text-emerald-400' : 'text-rose-400';
-          list.innerHTML += `<li class="p-3 bg-slate-900 rounded-lg flex justify-between text-sm">
-            <span>${item.subject} - ${item.date}</span>
-            <span class="${badgeClass} font-semibold">${item.status}</span>
-          </li>`;
+        const historyTable = document.getElementById('attendance-history');
+        const analyticsContainer = document.getElementById('subject-analytics');
+        
+        historyTable.innerHTML = '';
+        analyticsContainer.innerHTML = '';
+
+        let totalEffectiveClasses = 0;
+        let totalEffectiveAttended = 0;
+        let totalMissed = 0;
+        const subjectStats = {};
+
+        snapshot.forEach((docSnap) => {
+          const item = docSnap.data();
+          const isCancelled = item.status === 'Cancelled';
+          const isPresent = item.status === 'Present';
+          const isAbsent = item.status === 'Absent';
+
+          if (!isCancelled) {
+            totalEffectiveClasses++;
+            if (isPresent) totalEffectiveAttended++;
+            if (isAbsent) totalMissed++;
+
+            if (!subjectStats[item.subject]) {
+              subjectStats[item.subject] = { present: 0, total: 0 };
+            }
+            subjectStats[item.subject].total++;
+            if (isPresent) subjectStats[item.subject].present++;
+          }
+
+          let badgeStyle = 'bg-slate-800 text-slate-300';
+          if (isPresent) badgeStyle = 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20';
+          if (isAbsent) badgeStyle = 'bg-rose-500/10 text-rose-400 border-rose-500/20';
+          if (isCancelled) badgeStyle = 'bg-slate-800 text-slate-400 border-slate-700';
+
+          historyTable.innerHTML += `<tr class="hover:bg-slate-950/50">
+            <td class="p-3 font-medium text-slate-200">${item.subject}</td>
+            <td class="p-3 text-slate-400">${item.date}</td>
+            <td class="p-3 text-xs text-slate-400"><span class="px-2 py-0.5 bg-slate-950 rounded border border-slate-800">${item.type || 'Regular'}</span></td>
+            <td class="p-3"><span class="px-2.5 py-1 text-xs font-semibold rounded-lg border ${badgeStyle}">${item.status}</span></td>
+            <td class="p-3 text-right"><button onclick="deleteItem('attendance', '${docSnap.id}')" class="text-slate-500 hover:text-rose-400 text-sm">Delete</button></td>
+          </tr>`;
+        });
+
+        const overallPct = totalEffectiveClasses > 0 ? Math.round((totalEffectiveAttended / totalEffectiveClasses) * 100) : 0;
+        
+        document.getElementById('overall-percentage').textContent = `${overallPct}%`;
+        document.getElementById('total-classes').textContent = totalEffectiveClasses;
+        document.getElementById('total-attended').textContent = totalEffectiveAttended;
+        document.getElementById('total-missed').textContent = totalMissed;
+
+        if (Object.keys(subjectStats).length === 0) {
+          analyticsContainer.innerHTML = '<p class="text-slate-500 text-sm italic">No attendance entries recorded yet.</p>';
+          return;
+        }
+
+        const targetRatio = selectedTarget / 100;
+
+        Object.keys(subjectStats).forEach((subject) => {
+          const { present, total } = subjectStats[subject];
+          const pct = Math.round((present / total) * 100);
+          
+          let adviceText = '';
+          let adviceClass = '';
+
+          if (pct >= selectedTarget) {
+            const safeBunks = Math.floor((present - targetRatio * total) / targetRatio);
+            adviceText = safeBunks > 0 ? `You can safely bunk ${safeBunks} more class(es).` : `On track! Don't miss the next class.`;
+            adviceClass = 'text-emerald-400';
+          } else {
+            const needed = Math.ceil((targetRatio * total - present) / (1 - targetRatio));
+            adviceText = `Must attend next ${needed} class(es) straight to reach ${selectedTarget}%.`;
+            adviceClass = 'text-rose-400';
+          }
+
+          analyticsContainer.innerHTML += `
+            <div class="p-4 bg-slate-950 border border-slate-800 rounded-xl space-y-3">
+              <div class="flex justify-between items-center">
+                <span class="font-semibold text-slate-200">${subject}</span>
+                <span class="font-bold ${pct >= selectedTarget ? 'text-emerald-400' : 'text-rose-400'}">${pct}% (${present}/${total})</span>
+              </div>
+              <div class="w-full bg-slate-800 h-2 rounded-full overflow-hidden">
+                <div class="h-full ${pct >= selectedTarget ? 'bg-emerald-500' : 'bg-rose-500'}" style="width: ${Math.min(pct, 100)}%"></div>
+              </div>
+              <p class="text-xs ${adviceClass} font-medium">${adviceText}</p>
+            </div>
+          `;
         });
       });
     }
