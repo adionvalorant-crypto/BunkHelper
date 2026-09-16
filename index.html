@@ -9,11 +9,7 @@
 </head>
 <body>
 <div id="auth-screen" class="auth">
-  <div class="auth-card">
-    <div class="brand-mark">📚</div><h1>BunkHelper</h1>
-    <p>Your timetable, attendance and bunk calculation — organized instead of putting everything on one giant page.</p>
-    <button id="login-btn" class="google-btn">Continue with Google</button>
-  </div>
+  <div class="auth-card"><div class="brand-mark">📚</div><h1>BunkHelper</h1><p>Your timetable, attendance and bunk calculation — organized instead of putting everything on one giant page.</p><button id="login-btn" class="google-btn">Continue with Google</button></div>
 </div>
 <div id="app-screen" class="app-shell hidden">
 <header class="topbar"><div class="brand"><div class="brand-mark">📚</div><span>BunkHelper</span></div><div class="top-actions"><div class="user"><img id="user-avatar" class="avatar" alt=""><span id="user-name"></span></div><button id="logout-btn" class="logout">Logout</button></div></header>
@@ -24,70 +20,23 @@
 <button data-nav="attendance">✓ &nbsp; Mark Attendance</button>
 <button data-nav="history">◷ &nbsp; History</button>
 <button data-nav="settings">⚙ &nbsp; Settings</button>
-</nav><div class="side-note">Save your timetable once. Then, when you enter a date and time, BunkHelper automatically suggests the lecture scheduled for that slot.</div></aside>
+</nav><div class="side-note"><b>How BunkHelper works</b><br>1. Save your real weekly timetable.<br>2. Open Mark Attendance.<br>3. Enter the date and lecture time.<br>4. BunkHelper suggests the scheduled subject.<br>5. Save Present / Absent.</div></aside>
 <main>
 <div class="page-head"><div><h1 id="page-title">Dashboard</h1><p>Everything important at a glance.</p></div><div class="head-actions"><button id="history-view-btn" class="btn">View history</button><button id="week-view-btn" class="btn btn-primary">View timetable</button></div></div>
-
 <section data-view="dashboard">
-<div class="grid stats">
-<div class="card"><div class="stat-label">Overall attendance</div><div id="overall-percentage" class="stat-value primary">0%</div></div>
-<div class="card"><div class="stat-label">Classes logged</div><div id="total-classes" class="stat-value">0</div></div>
-<div class="card"><div class="stat-label">Attended</div><div id="total-attended" class="stat-value good">0</div></div>
-<div class="card"><div class="stat-label">Missed</div><div id="total-missed" class="stat-value bad">0</div></div>
-</div>
+<div class="grid stats"><div class="card"><div class="stat-label">Overall attendance</div><div id="overall-percentage" class="stat-value primary">0%</div></div><div class="card"><div class="stat-label">Classes logged</div><div id="total-classes" class="stat-value">0</div></div><div class="card"><div class="stat-label">Attended</div><div id="total-attended" class="stat-value good">0</div></div><div class="card"><div class="stat-label">Missed</div><div id="total-missed" class="stat-value bad">0</div></div></div>
 <div class="today-card"><div class="today-head"><div><div id="today-date" class="today-date"></div><h2 id="today-day-title">Today's classes</h2></div><div class="target-box card"><div id="target-summary"></div></div></div><div id="today-classes-list" class="schedule-chips"></div></div>
-<div class="grid dashboard-grid">
-<div class="card"><div class="section-title"><h2>Today's timetable</h2><span>Saved schedule</span></div><div id="mini-timetable"></div></div>
-<div class="card"><div class="section-title"><h2>Subject attendance</h2><span>Target: <span id="target-inline">75%</span></span></div><div id="subject-analytics"></div></div>
-</div>
+<div class="grid dashboard-grid"><div class="card"><div class="section-title"><h2>Today's timetable</h2><span>Saved schedule</span></div><div id="mini-timetable"></div></div><div class="card"><div class="section-title"><h2>Subject attendance</h2><span>Target: <span id="target-inline">75%</span></span></div><div id="subject-analytics"></div></div></div>
 </section>
-
 <section data-view="timetable" class="hidden">
-<div class="grid dashboard-grid">
-<div class="card"><div class="section-title"><h2>Weekly timetable</h2><span id="timetable-count">0 classes</span></div><div id="full-timetable" class="day-grid"></div></div>
-<div class="card">
-<div class="section-title"><h2>Add a class</h2><span>One slot at a time</span></div>
-<form id="timetable-form" class="form-grid">
-<div class="field full"><label>Subject</label><input id="subject-input" required placeholder="e.g. Constitutional Law I"></div>
-<div class="field"><label>Day</label><select id="day-input"><option>Monday</option><option>Tuesday</option><option>Wednesday</option><option>Thursday</option><option>Friday</option><option>Saturday</option></select></div>
-<div class="field"><label>Start time</label><input id="time-input" type="time" required></div>
-<div class="field full"><button class="btn btn-primary" type="submit">Add to timetable</button></div>
-</form>
-<hr style="border:0;border-top:1px solid var(--line);margin:22px 0">
-<div class="section-title"><h2>Import screenshot</h2><span>OCR helper</span></div>
-<div class="upload-box"><p class="hint" style="margin-bottom:12px">Upload a clear timetable screenshot. OCR reads the image and shows the extracted text for verification. It will never silently invent a schedule.</p><input id="ocr-file-input" type="file" accept="image/*" hidden><button id="upload-img-btn" class="btn">Choose timetable screenshot</button><div id="ocr-status" class="hint" style="margin-top:10px"></div><div id="ocr-preview-wrap" class="hidden"><pre id="ocr-preview" class="ocr-preview"></pre></div></div>
-</div>
-</div>
+<div class="card timetable-main"><div class="section-title"><div><h2>Weekly timetable</h2><p class="hint">This is the source of truth used by attendance suggestions.</p></div><span id="timetable-count">0 classes</span></div><div id="full-timetable" class="day-grid"></div></div>
+<div class="grid timetable-tools"><div class="card"><div class="section-title"><div><h2>Add a class</h2><p class="hint">Use this when you want exact control.</p></div></div><form id="timetable-form" class="form-grid"><div class="field full"><label>Subject</label><input id="subject-input" required placeholder="e.g. Constitutional Law I"></div><div class="field"><label>Day</label><select id="day-input"><option>Monday</option><option>Tuesday</option><option>Wednesday</option><option>Thursday</option><option>Friday</option><option>Saturday</option></select></div><div class="field"><label>Start time</label><input id="time-input" type="time" required></div><div class="field full"><button class="btn btn-primary" type="submit">Add to timetable</button></div></form></div>
+<div class="card"><div class="section-title"><div><h2>Import timetable screenshot</h2><p class="hint">OCR is a helper. Nothing is saved until you review it and click Save.</p></div></div><div class="upload-box"><input id="ocr-file-input" type="file" accept="image/*" hidden><button id="upload-img-btn" class="btn">Choose timetable screenshot</button><div id="ocr-status" class="hint" style="margin-top:10px"></div><div id="ocr-preview-wrap" class="hidden"><pre id="ocr-preview" class="ocr-preview"></pre></div></div></div></div>
+<div class="card import-review-card"><div class="section-title"><div><h2>Detected classes</h2><p class="hint">Correct any OCR mistakes, untick anything wrong, then save.</p></div><button id="save-import-btn" class="btn btn-good" type="button" disabled>Save selected classes</button></div><div id="import-preview-list" class="import-preview-list"><div class="empty-inline">Upload a timetable screenshot to create a review list.</div></div></div>
 </section>
-
-<section data-view="attendance" class="hidden">
-<div class="grid attendance-layout">
-<div class="card">
-<div class="section-title"><h2>Mark attendance</h2><span>Lecture-aware</span></div>
-<form id="attendance-form" class="form-grid">
-<div class="field full"><label>Lecture</label><select id="att-subject"></select><p id="subject-hint" class="hint"></p></div>
-<div class="field"><label>Date</label><input id="att-date" type="date" required></div>
-<div class="field"><label>Time</label><input id="att-time" type="time" required></div>
-<div id="suggestion-box" class="suggestion hidden field full"></div>
-<div class="field"><label>Status</label><select id="att-status"><option value="Present">Present</option><option value="Absent">Absent</option><option value="Cancelled">Class cancelled</option></select></div>
-<div class="field"><label>Type</label><select id="att-type"><option value="Regular">Regular</option><option value="Rescheduled">Rescheduled</option><option value="Extra">Extra lecture</option></select></div>
-<div class="field full"><button class="btn btn-good" type="submit">Save attendance</button></div>
-</form>
-<div class="quick-grid"><button id="quick-present" class="present">✓ Mark present</button><button id="quick-absent" class="absent">× Mark absent</button></div>
-</div>
-<div class="card"><div class="section-title"><h2>How it works</h2></div><div class="empty-state compact"><div class="empty-icon">🧠</div><h3>Timetable → suggestion → save</h3><p>Save your weekly timetable once. Enter the date and lecture time, and BunkHelper picks the matching subject automatically. You can always change it manually.</p><button class="btn" data-go="timetable">Manage timetable</button></div></div>
-</div>
-</section>
-
+<section data-view="attendance" class="hidden"><div class="grid attendance-layout"><div class="card"><div class="section-title"><div><h2>Mark attendance</h2><p class="hint">Your subject list comes directly from your timetable.</p></div></div><form id="attendance-form" class="form-grid"><div class="field full"><label>Lecture</label><select id="att-subject"></select><p id="subject-hint" class="hint"></p></div><div class="field"><label>Date</label><input id="att-date" type="date" required></div><div class="field"><label>Time</label><input id="att-time" type="time" required></div><div id="suggestion-box" class="suggestion hidden field full"></div><div class="field"><label>Status</label><select id="att-status"><option value="Present">Present</option><option value="Absent">Absent</option><option value="Cancelled">Class cancelled</option></select></div><div class="field"><label>Type</label><select id="att-type"><option value="Regular">Regular</option><option value="Rescheduled">Rescheduled</option><option value="Extra">Extra lecture</option></select></div><div class="field full"><button class="btn btn-good" type="submit">Save attendance</button></div></form><div class="quick-grid"><button id="quick-present" class="present" type="button">✓ Mark present</button><button id="quick-absent" class="absent" type="button">× Mark absent</button></div></div><div class="card"><div class="section-title"><h2>Fast workflow</h2></div><div class="empty-state compact"><div class="empty-icon">🧠</div><h3>Timetable → suggestion → save</h3><p>Enter a date and time. The matching class is selected for you. You can still change the subject before saving.</p><button class="btn" data-go="timetable" type="button">Manage timetable</button></div></div></div></section>
 <section data-view="history" class="hidden"><div class="card"><div class="section-title"><h2>Attendance history</h2><span>Newest first</span></div><div id="history-list"></div></div></section>
-
-<section data-view="settings" class="hidden">
-<div class="grid dashboard-grid">
-<div class="card"><div class="section-title"><h2>Attendance target</h2></div><div class="field"><label>Minimum target percentage</label><select id="target-threshold"><option value="75">75%</option><option value="80">80%</option><option value="85">85%</option></select><p class="hint">Used by the subject-wise bunk calculator.</p></div></div>
-<div class="card"><div class="section-title"><h2>Timetable tools</h2></div><div style="display:flex;flex-wrap:wrap;gap:9px"><button id="sample-timetable-btn" class="btn">Add sample timetable</button><button id="clear-timetable-btn" class="btn btn-danger">Clear timetable</button><button id="export-btn" class="btn">Export backup</button></div><p class="hint" style="margin-top:12px">Sample timetable is only for testing. Replace it with your actual schedule.</p></div>
-</div>
-</section>
-</main></div></div>
-<div id="toast-host" class="toast-host"></div>
+<section data-view="settings" class="hidden"><div class="grid dashboard-grid"><div class="card"><div class="section-title"><h2>Attendance target</h2></div><div class="field"><label>Minimum target percentage</label><select id="target-threshold"><option value="75">75%</option><option value="80">80%</option><option value="85">85%</option></select><p class="hint">Used by the subject-wise bunk calculation.</p></div></div><div class="card"><div class="section-title"><h2>Timetable tools</h2></div><div style="display:flex;flex-wrap:wrap;gap:9px"><button id="sample-timetable-btn" class="btn" type="button">Add sample timetable</button><button id="clear-timetable-btn" class="btn btn-danger" type="button">Clear timetable</button><button id="export-btn" class="btn" type="button">Export backup</button></div><p class="hint" style="margin-top:12px">Sample timetable is for testing only.</p></div></div></section>
+</main></div></div><div id="toast-host" class="toast-host"></div>
 <script type="module" src="./app.js"></script>
 </body></html>
