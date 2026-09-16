@@ -1,7 +1,7 @@
 import{initializeApp}from"https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
 import{getAuth,setPersistence,browserLocalPersistence,signInWithPopup,GoogleAuthProvider,onAuthStateChanged,signOut}from"https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
 import{getFirestore,collection,addDoc,deleteDoc,doc,query,where,onSnapshot,writeBatch}from"https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
-const firebaseConfig={apiKey:"AIzaSyDnneTFty97_4QmcRFOV58AqDUTmzwqtLo",authDomain:"bunkhelper-7ae5b.firebaseapp.com",projectId:"bunkhelper-7ae5b",storageBucket:"bunkhelper-7ae5b.firebasestorage.app",messagingSenderId:"377239213325",appId:"1:377239213325:web:7fab96687d9f5585318c44",measurementId:"G-7ZSZX0SLEH"};
+const firebaseConfig={apiKey:"AIzaSyOnne1FTy97_4QmcRFOV58AgQUInzwqtIo",authDomain:"bunkhelper-7ae5b.firebaseapp.com",projectId:"bunkhelper-7ae5b",storageBucket:"bunkhelper-7ae5b.firebasestorage.app",messagingSenderId:"377239213325",appId:"1:377239213325:web:7fa096687d975585318c44",measurementId:"G-7ZSZX0SLEH"};
 const app=initializeApp(firebaseConfig),auth=getAuth(app),db=getFirestore(app);
 let user=null,timetable=[],attendance=[],unsubTT=null,unsubAtt=null,target=Number(localStorage.getItem("bunkhelper-target")||75);
 const days=["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"],dayOrder=Object.fromEntries(days.map((d,i)=>[d,i]));
