@@ -78,7 +78,7 @@
 
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-    import { getAuth, signInWithRedirect, getRedirectResult, GoogleAuthProvider, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+    import { getAuth, setPersistence, browserLocalPersistence, signInWithPopup, GoogleAuthProvider, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
     import { getFirestore, collection, addDoc, query, where, onSnapshot } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
     const firebaseConfig = {
@@ -100,10 +100,6 @@
     const appScreen = document.getElementById('app-screen');
     const userNameDisplay = document.getElementById('user-name');
 
-    getRedirectResult(auth).catch((error) => {
-      console.error("Login redirect error:", error);
-    });
-
     onAuthStateChanged(auth, (user) => {
       if (user) {
         currentUser = user;
@@ -119,7 +115,17 @@
     });
 
     const provider = new GoogleAuthProvider();
-    document.getElementById('login-btn').onclick = () => signInWithRedirect(auth, provider);
+    
+    document.getElementById('login-btn').onclick = async () => {
+      try {
+        await setPersistence(auth, browserLocalPersistence);
+        await signInWithPopup(auth, provider);
+      } catch (error) {
+        console.error("Login error:", error);
+        alert("Login failed: " + error.message);
+      }
+    };
+
     document.getElementById('logout-btn').onclick = () => signOut(auth);
 
     document.getElementById('timetable-form').onsubmit = async (e) => {
