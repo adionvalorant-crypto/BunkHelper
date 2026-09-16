@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>BunkHelper Portal</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-slate-900 text-slate-100 min-h-screen font-sans">
+
+  <!-- LOGIN SCREEN -->
+  <div id="auth-screen" class="flex flex-col items-center justify-center min-h-screen p-4">
+    <div class="bg-slate-800 border border-slate-700 p-8 rounded-2xl shadow-2xl text-center max-w-md w-full">
+      <h1 class="text-3xl font-bold mb-2 text-indigo-400">BunkHelper Portal</h1>
+      <p class="text-slate-400 mb-8">Manage your timetable & track attendance automatically.</p>
+      <button id="login-btn" class="w-full py-3 px-6 bg-indigo-600 hover:bg-indigo-500 font-semibold rounded-xl transition shadow-lg flex items-center justify-center gap-3">
+        <svg class="w-5 h-5" viewBox="0 0 24 24"><path fill="currentColor" d="M12.545,10.239v3.821h5.445c-0.712,2.315-2.647,3.972-5.445,3.972c-3.332,0-6.033-2.701-6.033-6.032s2.701-6.032,6.033-6.032c1.498,0,2.866,0.549,3.921,1.453l2.814-2.814C17.503,2.988,15.139,2,12.545,2C7.021,2,2.543,6.477,2.543,12s4.478,10,10.002,10c8.396,0,10.249-7.85,9.426-11.761H12.545z"/></svg>
+        Sign in with Google
+      </button>
+    </div>
+  </div>
+
+  <!-- MAIN APP SCREEN -->
+  <div id="app-screen" class="hidden min-h-screen flex flex-col">
+    <header class="bg-slate-800 border-b border-slate-700 px-6 py-4 flex justify-between items-center">
+      <h2 class="text-xl font-bold text-indigo-400">BunkHelper Dashboard</h2>
+      <div class="flex items-center gap-4">
+        <span id="user-name" class="text-sm font-medium text-slate-300"></span>
+        <button id="logout-btn" class="text-sm bg-slate-700 hover:bg-slate-600 px-3 py-1.5 rounded-lg border border-slate-600">Logout</button>
+      </div>
+    </header>
+
+    <main class="flex-1 p-6 max-w-6xl mx-auto w-full grid grid-cols-1 md:grid-cols-2 gap-8">
+      
+      <!-- TIMETABLE SECTION -->
+      <section class="bg-slate-800 border border-slate-700 rounded-2xl p-6">
+        <h3 class="text-lg font-semibold text-slate-200 mb-4">Add Class to Timetable</h3>
+        <form id="timetable-form" class="space-y-4">
+          <input type="text" id="subject-input" placeholder="Subject Name (e.g. Law / Math)" required class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2.5 text-sm">
+          <div class="grid grid-cols-2 gap-4">
+            <select id="day-input" class="bg-slate-900 border border-slate-700 rounded-lg p-2.5 text-sm">
+              <option>Monday</option><option>Tuesday</option><option>Wednesday</option><option>Thursday</option><option>Friday</option><option>Saturday</option>
+            </select>
+            <input type="time" id="time-input" required class="bg-slate-900 border border-slate-700 rounded-lg p-2.5 text-sm">
+          </div>
+          <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-500 py-2.5 rounded-lg font-medium text-sm">Save Subject</button>
+        </form>
+
+        <hr class="border-slate-700 my-6">
+
+        <h3 class="text-lg font-semibold text-slate-200 mb-4">Your Saved Timetable</h3>
+        <ul id="timetable-list" class="space-y-2"></ul>
+      </section>
+
+      <!-- ATTENDANCE SECTION -->
+      <section class="bg-slate-800 border border-slate-700 rounded-2xl p-6">
+        <h3 class="text-lg font-semibold text-slate-200 mb-4">Log Attendance</h3>
+        <form id="attendance-form" class="space-y-4">
+          <input type="text" id="att-subject" placeholder="Subject Name" required class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2.5 text-sm">
+          <div class="grid grid-cols-2 gap-4">
+            <input type="date" id="att-date" required class="bg-slate-900 border border-slate-700 rounded-lg p-2.5 text-sm">
+            <select id="att-status" class="bg-slate-900 border border-slate-700 rounded-lg p-2.5 text-sm">
+              <option value="Present">Present</option>
+              <option value="Absent">Absent</option>
+            </select>
+          </div>
+          <button type="submit" class="w-full bg-emerald-600 hover:bg-emerald-500 py-2.5 rounded-lg font-medium text-sm">Log Attendance</button>
+        </form>
+
+        <hr class="border-slate-700 my-6">
+
+        <h3 class="text-lg font-semibold text-slate-200 mb-4">Attendance History</h3>
+        <ul id="attendance-list" class="space-y-2"></ul>
+      </section>
+
+    </main>
+  </div>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+    import { getAuth, signInWithPopup, GoogleAuthProvider, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+    import { getFirestore, collection, addDoc, query, where, onSnapshot } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyOnne1FTy97_4QmcRFOV58AgQUInzwqtIo",
+      authDomain: "bunkhelper-7ae5b.firebaseapp.com",
+      projectId: "bunkhelper-7ae5b",
+      storageBucket: "bunkhelper-7ae5b.firebasestorage.app",
+      messagingSenderId: "377239213325",
+      appId: "1:377239213325:web:7fa096687d975585318c44"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getFirestore(app);
+    let currentUser = null;
+
+    const authScreen = document.getElementById('auth-screen');
+    const appScreen = document.getElementById('app-screen');
+    const userNameDisplay = document.getElementById('user-name');
+
+    onAuthStateChanged(auth, (user) => {
+      if (user) {
+        currentUser = user;
+        authScreen.classList.add('hidden');
+        appScreen.classList.remove('hidden');
+        userNameDisplay.textContent = user.displayName;
+        loadUserData();
+      } else {
+        currentUser = null;
+        authScreen.classList.remove('hidden');
+        appScreen.classList.add('hidden');
+      }
+    });
+
+    document.getElementById('login-btn').onclick = () => signInWithPopup(auth, new GoogleAuthProvider());
+    document.getElementById('logout-btn').onclick = () => signOut(auth);
+
+    document.getElementById('timetable-form').onsubmit = async (e) => {
+      e.preventDefault();
+      await addDoc(collection(db, "timetables"), {
+        uid: currentUser.uid,
+        subject: document.getElementById('subject-input').value,
+        day: document.getElementById('day-input').value,
+        time: document.getElementById('time-input').value
+      });
+      e.target.reset();
+    };
+
+    document.getElementById('attendance-form').onsubmit = async (e) => {
+      e.preventDefault();
+      await addDoc(collection(db, "attendance"), {
+        uid: currentUser.uid,
+        subject: document.getElementById('att-subject').value,
+        date: document.getElementById('att-date').value,
+        status: document.getElementById('att-status').value
+      });
+      e.target.reset();
+    };
+
+    function loadUserData() {
+      const ttQuery = query(collection(db, "timetables"), where("uid", "==", currentUser.uid));
+      onSnapshot(ttQuery, (snapshot) => {
+        const list = document.getElementById('timetable-list');
+        list.innerHTML = '';
+        snapshot.forEach((doc) => {
+          const item = doc.data();
+          list.innerHTML += `<li class="p-3 bg-slate-900 rounded-lg flex justify-between text-sm">
+            <span><strong>${item.subject}</strong> (${item.day})</span>
+            <span class="text-indigo-400">${item.time}</span>
+          </li>`;
+        });
+      });
+
+      const attQuery = query(collection(db, "attendance"), where("uid", "==", currentUser.uid));
+      onSnapshot(attQuery, (snapshot) => {
+        const list = document.getElementById('attendance-list');
+        list.innerHTML = '';
+        snapshot.forEach((doc) => {
+          const item = doc.data();
+          const badgeClass = item.status === 'Present' ? 'text-emerald-400' : 'text-rose-400';
+          list.innerHTML += `<li class="p-3 bg-slate-900 rounded-lg flex justify-between text-sm">
+            <span>${item.subject} - ${item.date}</span>
+            <span class="${badgeClass} font-semibold">${item.status}</span>
+          </li>`;
+        });
+      });
+    }
+  </script>
+</body>
+</html>
