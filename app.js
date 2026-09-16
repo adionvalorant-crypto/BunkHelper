@@ -1,42 +1,332 @@
-import{initializeApp}from"https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-import{getAuth,setPersistence,browserLocalPersistence,signInWithPopup,GoogleAuthProvider,onAuthStateChanged,signOut}from"https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
-import{getFirestore,collection,addDoc,deleteDoc,doc,query,where,onSnapshot,writeBatch}from"https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
-const firebaseConfig={apiKey:"AIzaSyOnne1FTy97_4QmcRFOV58AgQUInzwqtIo",authDomain:"bunkhelper-7ae5b.firebaseapp.com",projectId:"bunkhelper-7ae5b",storageBucket:"bunkhelper-7ae5b.firebasestorage.app",messagingSenderId:"377239213325",appId:"1:377239213325:web:7fa096687d975585318c44",measurementId:"G-7ZSZX0SLEH"};
-const app=initializeApp(firebaseConfig),auth=getAuth(app),db=getFirestore(app);
-let user=null,timetable=[],attendance=[],unsubTT=null,unsubAtt=null,target=Number(localStorage.getItem("bunkhelper-target")||75);
-const days=["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"],dayOrder=Object.fromEntries(days.map((d,i)=>[d,i]));
-const $=id=>document.getElementById(id);
-const esc=s=>String(s??"").replace(/[&<>'"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;","'":"&#39;",'"':"&quot;"}[c]));
-const today=()=>new Date().toLocaleDateString("en-US",{weekday:"long"});
-const isoToday=()=>{const d=new Date();return d.toISOString().slice(0,10)};
-const mins=t=>{const[a,b]=String(t||"0:0").split(":").map(Number);return a*60+b};
-const sort=a=>[...a].sort((x,y)=>(dayOrder[x.day]??99)-(dayOrder[y.day]??99)||String(x.time).localeCompare(String(y.time)));
-function toast(msg,type="info"){const h=$("toast-host"),e=document.createElement("div");e.className="toast toast-"+type;e.innerHTML="<span>"+esc(msg)+"</span><button>×</button>";e.querySelector("button").onclick=()=>e.remove();h.appendChild(e);setTimeout(()=>e.remove(),3500)}
-function view(v){document.querySelectorAll("[data-view]").forEach(x=>x.classList.toggle("hidden",x.dataset.view!==v));document.querySelectorAll("[data-nav]").forEach(x=>x.classList.toggle("active",x.dataset.nav===v));$("page-title").textContent={dashboard:"Dashboard",timetable:"Timetable",attendance:"Mark Attendance",history:"History",settings:"Settings"}[v]||"Dashboard";scrollTo({top:0,behavior:"smooth"})}
-function dateLabel(){return new Date().toLocaleDateString("en-IN",{weekday:"long",day:"numeric",month:"long",year:"numeric"})}
-function findLecture(date,time){const d=new Date(date+"T12:00:00").toLocaleDateString("en-US",{weekday:"long"});return sort(timetable.filter(x=>x.day===d)).sort((a,b)=>Math.abs(mins(a.time)-mins(time))-Math.abs(mins(b.time)-mins(time)))[0]||null}
-function recorded(subject,date,time){return attendance.find(x=>x.subject.toLowerCase()===subject.toLowerCase()&&x.date===date&&(time?x.time===time:true))}
-function refreshSubjects(){const s=$("att-subject"),old=s.value,subjects=[...new Set(timetable.map(x=>x.subject).filter(Boolean))].sort();s.innerHTML=subjects.length?subjects.map(x=>"<option value='"+esc(x)+"'>"+esc(x)+"</option>").join(""):'<option value="">No timetable classes</option>';s.disabled=!subjects.length;$("subject-hint").textContent=subjects.length?"Pick a lecture. Date + time can automatically select the scheduled subject.":"Add your weekly timetable first.";if(subjects.includes(old))s.value=old}
-function suggest(){if(!$("att-date").value||!$("att-time").value)return;const x=findLecture($("att-date").value,$("att-time").value);if(x){$("att-subject").value=x.subject;$("suggestion-box").innerHTML="<strong>Suggested:</strong> "+esc(x.subject)+" · "+esc(x.day)+" "+esc(x.time);$("suggestion-box").classList.remove("hidden")}else $("suggestion-box").classList.add("hidden")}
-function renderToday(){const d=today(),items=sort(timetable.filter(x=>x.day===d));$("today-date").textContent=dateLabel();$("today-day-title").textContent=items.length?items.length+" classes scheduled today":"No classes scheduled today";const h=$("today-classes-list");h.innerHTML=items.length?"":"<div class='empty-inline'>No classes scheduled for today.</div>";const now=mins(new Date().toTimeString().slice(0,5));items.forEach(x=>{const a=recorded(x.subject,isoToday(),x.time),state=a?.status==="Present"?"present":a?.status==="Absent"?"absent":mins(x.time)<now?"past":"upcoming";h.insertAdjacentHTML("beforeend","<button class='schedule-chip "+state+"' data-today-subject='"+esc(x.subject)+"' data-today-time='"+esc(x.time)+"'><span class='chip-time'>"+esc(x.time)+"</span><span class='chip-subject'>"+esc(x.subject)+"</span><span class='chip-status'>"+(a?esc(a.status):"Mark")+"</span></button>")})}
-function renderMini(){const h=$("mini-timetable"),items=sort(timetable.filter(x=>x.day===today()));h.innerHTML=items.length?items.slice(0,8).map(x=>"<div class='mini-row'><span class='mini-time'>"+esc(x.time)+"</span><span class='mini-subject'>"+esc(x.subject)+"</span><span class='mini-arrow'>→</span></div>").join(""):"<div class='empty-state compact'><div class='empty-icon'>📅</div><h4>No classes today</h4><p>Your saved timetable will appear here.</p><button class='btn' data-go='timetable'>Manage timetable</button></div>"}
-function renderTimetable(){const h=$("full-timetable");$("timetable-count").textContent=timetable.length+" classes";h.innerHTML=days.map(d=>{const a=sort(timetable.filter(x=>x.day===d));return"<section class='day-column "+(d===today()?"is-today":"")+"'><div class='day-header'><div><span class='day-name'>"+d+"</span><span class='day-count'>"+a.length+" "+(a.length===1?"class":"classes")+"</span></div>"+(d===today()?"<span class='today-badge'>TODAY</span>":"")+"</div><div class='day-items'>"+(a.length?a.map(x=>"<div class='class-card'><div><span class='class-time'>"+esc(x.time)+"</span><h4>"+esc(x.subject)+"</h4></div><button class='icon-btn' data-delete-tt='"+x.id+"'>×</button></div>").join(""):"<div class='day-empty'>No classes</div>")+"</div></section>"}).join("")}
-function renderStats(){const e=attendance.filter(x=>x.status!=="Cancelled"),p=e.filter(x=>x.status==="Present").length,m=e.filter(x=>x.status==="Absent").length,pct=e.length?Math.round(p/e.length*100):0;$("overall-percentage").textContent=pct+"%";$("total-classes").textContent=e.length;$("total-attended").textContent=p;$("total-missed").textContent=m;$("target-inline").textContent=target+"%";$("target-threshold").value=target;const stats={};e.forEach(x=>{stats[x.subject]??={p:0,t:0};stats[x.subject].t++;if(x.status==="Present")stats[x.subject].p++});const h=$("subject-analytics"),rows=Object.entries(stats);h.innerHTML=rows.length?rows.map(([s,v])=>{const q=Math.round(v.p/v.t*100),r=target/100;let advice;if(q>=target){const bunk=Math.max(0,Math.floor((v.p-r*v.t)/r));advice=bunk?"You can miss "+bunk+" more class"+(bunk===1?"":"es")+" and stay at "+target+"%.":"At "+target+"%. Keep attending."}else{const need=Math.ceil((r*v.t-v.p)/(1-r));advice="Attend the next "+need+" class"+(need===1?"":"es")+" to reach "+target+"%."}return"<div class='subject-stat'><div class='subject-stat-top'><div><h4>"+esc(s)+"</h4><span>"+v.p+"/"+v.t+" attended</span></div><strong class='"+(q>=target?"good":"bad")+"'>"+q+"%</strong></div><div class='progress'><span style='width:"+q+"%'></span><i style='left:"+target+"%'></i></div><p>"+esc(advice)+"</p></div>"}).join(""):"<div class='empty-state compact'><div class='empty-icon'>📊</div><h3>No analytics yet</h3><p>Mark attendance and subject-wise stats will appear here.</p></div>";$("target-summary").innerHTML="<div class='target-number'>"+target+"%</div><div><strong>Target</strong><p>Current overall: <b>"+pct+"%</b></p></div>"}
-function renderHistory(){const h=$("history-list"),a=[...attendance].sort((x,y)=>(y.date+" "+(y.time||"")).localeCompare(x.date+" "+(x.time||"")));h.innerHTML=a.length?"<div class='history-table-wrap'><table class='history-table'><thead><tr><th>Date</th><th>Subject</th><th>Time</th><th>Status</th><th>Type</th><th></th></tr></thead><tbody>"+a.map(x=>"<tr><td>"+esc(x.date)+"</td><td><strong>"+esc(x.subject)+"</strong></td><td>"+esc(x.time||"—")+"</td><td><span class='status-pill "+String(x.status).toLowerCase()+"'>"+esc(x.status)+"</span></td><td>"+esc(x.type||"Regular")+"</td><td><button class='text-btn danger' data-delete-att='"+x.id+"'>Delete</button></td></tr>").join("")+"</tbody></table></div>":"<div class='empty-state compact'><div class='empty-icon'>✓</div><h3>No attendance logged</h3><p>Your records will appear here.</p></div>"}
-async function mark(subject,date,time,status,type="Regular"){if(!user||!subject)return;const duplicate=recorded(subject,date,time);if(duplicate){toast("That lecture is already recorded for this date/time.","warning");return}await addDoc(collection(db,"attendance"),{uid:user.uid,subject,date,time:time||"",status,type,timetableMatch:Boolean(findLecture(date,time||""))});toast(status+": "+subject,status==="Present"?"success":"warning")}
-async function deleteRec(col,id){if(!confirm("Delete this record?"))return;try{await deleteDoc(doc(db,col,id))}catch(e){console.error(e);toast("Could not delete record.","error")}}
-async function clearTT(){if(!timetable.length)return;if(!confirm("Delete all "+timetable.length+" timetable entries?"))return;const b=writeBatch(db);timetable.forEach(x=>b.delete(doc(db,"timetables",x.id)));await b.commit();toast("Timetable cleared.","success")}
-function setup(){document.querySelectorAll("[data-nav]").forEach(b=>b.onclick=()=>view(b.dataset.nav));document.querySelectorAll("[data-go]").forEach(b=>b.onclick=()=>view(b.dataset.go));$("week-view-btn").onclick=()=>view("timetable");$("history-view-btn").onclick=()=>view("history");$("logout-btn").onclick=()=>signOut(auth);
-$("target-threshold").onchange=e=>{target=Number(e.target.value);localStorage.setItem("bunkhelper-target",target);renderStats()};
-$("att-date").value=isoToday();$("att-time").value=new Date().toTimeString().slice(0,5);["att-date","att-time"].forEach(id=>$(id).addEventListener("input",suggest));
-$("attendance-form").onsubmit=async e=>{e.preventDefault();try{await mark($("att-subject").value,$("att-date").value,$("att-time").value,$("att-status").value,$("att-type").value);e.target.reset();$("att-date").value=isoToday();$("att-time").value=new Date().toTimeString().slice(0,5);refreshSubjects();suggest()}catch(err){console.error(err);toast("Could not save attendance. Check Firestore rules.","error")}};
-$("quick-present").onclick=()=>mark($("att-subject").value,isoToday(),$("att-time").value,"Present");$("quick-absent").onclick=()=>mark($("att-subject").value,isoToday(),$("att-time").value,"Absent");
-$("timetable-form").onsubmit=async e=>{e.preventDefault();try{await addDoc(collection(db,"timetables"),{uid:user.uid,subject:$("subject-input").value.trim(),day:$("day-input").value,time:$("time-input").value});e.target.reset();toast("Class added.","success")}catch(err){console.error(err);toast("Could not add class.","error")}};
-$("clear-timetable-btn").onclick=clearTT;$("export-btn").onclick=()=>{const blob=new Blob([JSON.stringify({exportedAt:new Date().toISOString(),target,timetable,attendance},null,2)],{type:"application/json"}),url=URL.createObjectURL(blob),a=document.createElement("a");a.href=url;a.download="bunkhelper-backup.json";a.click();URL.revokeObjectURL(url);toast("Backup exported.","success")};
-$("full-timetable").onclick=e=>{const id=e.target.closest("[data-delete-tt]")?.dataset.deleteTt;if(id)deleteRec("timetables",id)};$("history-list").onclick=e=>{const id=e.target.closest("[data-delete-att]")?.dataset.deleteAtt;if(id)deleteRec("attendance",id)};
-$("today-classes-list").onclick=e=>{const b=e.target.closest("[data-today-subject]");if(!b)return;view("attendance");$("att-subject").value=b.dataset.todaySubject;$("att-date").value=isoToday();$("att-time").value=b.dataset.todayTime;$("att-status").value="Present";suggest()};
-$("sample-timetable-btn").onclick=async()=>{if(!user)return;const sample=[["Monday","09:00","Constitutional Law I"],["Monday","10:00","Law of Contracts II"],["Tuesday","09:00","Consumer Behaviour"],["Tuesday","10:00","Management Accounting"],["Wednesday","09:00","The Bharatiya Nyaya Sanhita 2023"],["Wednesday","10:00","Macroeconomics"],["Thursday","09:00","Business Ethics & CSR"],["Thursday","10:00","Environmental Management"],["Friday","09:00","Constitutional Law I"],["Friday","10:00","Law of Contracts II"]],b=writeBatch(db);sample.forEach(([day,time,subject])=>{const r=doc(collection(db,"timetables"));b.set(r,{uid:user.uid,day,time,subject})});await b.commit();toast("Sample timetable added. Replace it with your actual schedule.","info")};
-$("upload-img-btn").onclick=()=>$("ocr-file-input").click();$("ocr-file-input").onchange=async e=>{const file=e.target.files?.[0];if(!file)return;try{$("ocr-status").textContent="Reading screenshot…";const w=await Tesseract.createWorker("eng"),r=await w.recognize(file);await w.terminate();$("ocr-preview").textContent=r.data.text?.trim()||"No readable text found.";$("ocr-preview-wrap").classList.remove("hidden");$("ocr-status").textContent="OCR complete. Verify the text before adding timetable slots.";toast("Screenshot read successfully.","success")}catch(err){console.error(err);$("ocr-status").textContent="OCR failed.";toast("Could not read screenshot.","error")}}}
-function connect(){if(unsubTT)unsubTT();if(unsubAtt)unsubAtt();unsubTT=onSnapshot(query(collection(db,"timetables"),where("uid","==",user.uid)),s=>{timetable=sort(s.docs.map(d=>({id:d.id,...d.data()})));renderToday();renderMini();renderTimetable();refreshSubjects();suggest()},e=>{console.error(e);toast("Timetable failed to load. Check Firestore rules.","error")});unsubAtt=onSnapshot(query(collection(db,"attendance"),where("uid","==",user.uid)),s=>{attendance=s.docs.map(d=>({id:d.id,...d.data()}));renderStats();renderHistory();renderToday()},e=>{console.error(e);toast("Attendance failed to load. Check Firestore rules.","error")})}
-$("login-btn").onclick=async()=>{try{await setPersistence(auth,browserLocalPersistence);await signInWithPopup(auth,new GoogleAuthProvider())}catch(e){console.error(e);toast("Login failed: "+e.message,"error")}};
-onAuthStateChanged(auth,u=>{if(u){user=u;$("auth-screen").classList.add("hidden");$("app-screen").classList.remove("hidden");$("user-name").textContent=u.displayName||u.email||"Student";$("user-avatar").src=u.photoURL||"";setup();connect();view("dashboard")}else{user=null;$("auth-screen").classList.remove("hidden");$("app-screen").classList.add("hidden");if(unsubTT)unsubTT();if(unsubAtt)unsubAtt()}});
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+import { getAuth, setPersistence, browserLocalPersistence, signInWithPopup, GoogleAuthProvider, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+import { getFirestore, collection, addDoc, deleteDoc, doc, query, where, onSnapshot, writeBatch } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+
+// This is the Firebase configuration from the original working BunkHelper app.
+const firebaseConfig = {
+  apiKey: "AIzaSyDnneTFty97_4QmcRFOV58AqDUTmzwqtLo",
+  authDomain: "bunkhelper-7ae5b.firebaseapp.com",
+  projectId: "bunkhelper-7ae5b",
+  storageBucket: "bunkhelper-7ae5b.firebasestorage.app",
+  messagingSenderId: "377239213325",
+  appId: "1:377239213325:web:7fab96687d9f5585318c44",
+  measurementId: "G-7ZSZX0SLEH"
+};
+
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
+const DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+const DAY_ORDER = Object.fromEntries(DAYS.map((day, index) => [day, index]));
+
+let currentUser = null;
+let timetable = [];
+let attendance = [];
+let unsubscribeTimetable = null;
+let unsubscribeAttendance = null;
+let target = Number(localStorage.getItem("bunkhelper-target") || 75);
+let importedRows = [];
+let eventsBound = false;
+
+const $ = (id) => document.getElementById(id);
+const escapeHtml = (value = "") => String(value).replace(/[&<>\"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const localISODate = () => {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+};
+const todayName = () => new Date().toLocaleDateString("en-US", { weekday: "long" });
+const displayToday = () => new Date().toLocaleDateString("en-IN", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
+const minutes = (time) => { const parts = String(time || "00:00").split(":").map(Number); return (parts[0] || 0) * 60 + (parts[1] || 0); };
+const sortClasses = (items) => [...items].sort((a, b) => (DAY_ORDER[a.day] ?? 99) - (DAY_ORDER[b.day] ?? 99) || String(a.time || "").localeCompare(String(b.time || "")) || String(a.subject || "").localeCompare(String(b.subject || "")));
+
+function showToast(message, type = "info") {
+  const host = $("toast-host");
+  if (!host) return;
+  const toast = document.createElement("div");
+  toast.className = `toast toast-${type}`;
+  toast.innerHTML = `<span>${escapeHtml(message)}</span><button type="button">×</button>`;
+  toast.querySelector("button").onclick = () => toast.remove();
+  host.appendChild(toast);
+  setTimeout(() => toast.remove(), 4000);
+}
+
+function switchView(viewName) {
+  document.querySelectorAll("[data-view]").forEach((section) => section.classList.toggle("hidden", section.dataset.view !== viewName));
+  document.querySelectorAll("[data-nav]").forEach((button) => button.classList.toggle("active", button.dataset.nav === viewName));
+  $("page-title").textContent = ({ dashboard: "Dashboard", timetable: "Timetable", attendance: "Mark Attendance", history: "History", settings: "Settings" })[viewName] || "Dashboard";
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+function bindGoButtons() { document.querySelectorAll("[data-go]").forEach((button) => button.onclick = () => switchView(button.dataset.go)); }
+
+function findScheduledLecture(date, time) {
+  if (!date || !time) return null;
+  const weekday = new Date(`${date}T12:00:00`).toLocaleDateString("en-US", { weekday: "long" });
+  const exact = timetable.filter((item) => item.day === weekday && item.time === time);
+  if (exact.length) return exact[0];
+  const sameDay = timetable.filter((item) => item.day === weekday);
+  if (!sameDay.length) return null;
+  const t = minutes(time);
+  const nearest = [...sameDay].sort((a, b) => Math.abs(minutes(a.time) - t) - Math.abs(minutes(b.time) - t))[0];
+  return Math.abs(minutes(nearest.time) - t) <= 90 ? nearest : null;
+}
+
+function findAttendance(subject, date, time = "") {
+  return attendance.find((item) => item.subject?.toLowerCase() === subject?.toLowerCase() && item.date === date && (!time || item.time === time));
+}
+
+function refreshSubjectDropdown() {
+  const select = $("att-subject");
+  const previous = select.value;
+  const subjects = [...new Set(timetable.map((item) => item.subject).filter(Boolean))].sort((a, b) => a.localeCompare(b));
+  select.innerHTML = subjects.length ? subjects.map((subject) => `<option value="${escapeHtml(subject)}">${escapeHtml(subject)}</option>`).join("") : '<option value="">No timetable classes</option>';
+  select.disabled = !subjects.length;
+  if (subjects.includes(previous)) select.value = previous;
+  $("subject-hint").textContent = subjects.length ? "Your subject list comes from the saved timetable. Date + time will suggest the scheduled lecture." : "Add your weekly timetable first.";
+}
+
+function suggestLecture() {
+  const match = findScheduledLecture($("att-date").value, $("att-time").value);
+  if (!match) { $("suggestion-box").classList.add("hidden"); return; }
+  $("att-subject").value = match.subject;
+  $("suggestion-box").innerHTML = `<strong>Scheduled lecture:</strong> ${escapeHtml(match.subject)} · ${escapeHtml(match.day)} ${escapeHtml(match.time)}`;
+  $("suggestion-box").classList.remove("hidden");
+}
+
+function renderToday() {
+  const day = todayName();
+  const classes = sortClasses(timetable.filter((item) => item.day === day));
+  $("today-date").textContent = displayToday();
+  $("today-day-title").textContent = classes.length ? `${classes.length} ${classes.length === 1 ? "class" : "classes"} scheduled today` : "No classes scheduled today";
+  const host = $("today-classes-list");
+  host.innerHTML = classes.length ? "" : '<div class="empty-inline">No classes scheduled for today.</div>';
+  classes.forEach((item) => {
+    const record = findAttendance(item.subject, localISODate(), item.time);
+    const state = record?.status === "Present" ? "present" : record?.status === "Absent" ? "absent" : "upcoming";
+    host.insertAdjacentHTML("beforeend", `<button type="button" class="schedule-chip ${state}" data-today-subject="${escapeHtml(item.subject)}" data-today-time="${escapeHtml(item.time)}"><span class="chip-time">${escapeHtml(item.time)}</span><span class="chip-subject">${escapeHtml(item.subject)}</span><span class="chip-status">${record ? escapeHtml(record.status) : "Mark"}</span></button>`);
+  });
+}
+
+function renderMiniTimetable() {
+  const classes = sortClasses(timetable.filter((item) => item.day === todayName()));
+  $("mini-timetable").innerHTML = classes.length ? classes.map((item) => `<div class="mini-row"><span class="mini-time">${escapeHtml(item.time)}</span><span class="mini-subject">${escapeHtml(item.subject)}</span><span class="mini-arrow">→</span></div>`).join("") : '<div class="empty-state compact"><div class="empty-icon">📅</div><h4>No classes today</h4><p>Your saved schedule will appear here.</p><button class="btn" type="button" data-go="timetable">Manage timetable</button></div>';
+  bindGoButtons();
+}
+
+function renderTimetable() {
+  $("timetable-count").textContent = `${timetable.length} ${timetable.length === 1 ? "class" : "classes"}`;
+  $("full-timetable").innerHTML = DAYS.map((day) => {
+    const classes = sortClasses(timetable.filter((item) => item.day === day));
+    return `<section class="day-column ${day === todayName() ? "is-today" : ""}"><div class="day-header"><div><span class="day-name">${day}</span><span class="day-count">${classes.length} ${classes.length === 1 ? "class" : "classes"}</span></div>${day === todayName() ? '<span class="today-badge">TODAY</span>' : ""}</div><div class="day-items">${classes.length ? classes.map((item) => `<div class="class-card"><div><span class="class-time">${escapeHtml(item.time)}</span><h4>${escapeHtml(item.subject)}</h4></div><button type="button" class="icon-btn" data-delete-tt="${item.id}" aria-label="Delete class">×</button></div>`).join("") : '<div class="day-empty">No classes</div>'}</div></section>`;
+  }).join("");
+}
+
+function renderStats() {
+  const effective = attendance.filter((item) => item.status !== "Cancelled");
+  const attended = effective.filter((item) => item.status === "Present").length;
+  const missed = effective.filter((item) => item.status === "Absent").length;
+  const pct = effective.length ? Math.round(attended / effective.length * 100) : 0;
+  $("overall-percentage").textContent = `${pct}%`;
+  $("total-classes").textContent = effective.length;
+  $("total-attended").textContent = attended;
+  $("total-missed").textContent = missed;
+  $("target-inline").textContent = `${target}%`;
+  $("target-threshold").value = String(target);
+  const bySubject = {};
+  effective.forEach((item) => { bySubject[item.subject] ||= { present: 0, total: 0 }; bySubject[item.subject].total += 1; if (item.status === "Present") bySubject[item.subject].present += 1; });
+  const rows = Object.entries(bySubject).sort(([a], [b]) => a.localeCompare(b));
+  $("subject-analytics").innerHTML = rows.length ? rows.map(([subject, data]) => {
+    const percentage = Math.round(data.present / data.total * 100);
+    const ratio = target / 100;
+    let advice;
+    if (percentage >= target) {
+      const bunks = Math.max(0, Math.floor((data.present - ratio * data.total) / ratio));
+      advice = bunks ? `You can miss ${bunks} more class${bunks === 1 ? "" : "es"} and stay at ${target}%.` : `At ${target}%. Keep attending.`;
+    } else {
+      const needed = Math.max(0, Math.ceil((ratio * data.total - data.present) / (1 - ratio)));
+      advice = `Attend the next ${needed} class${needed === 1 ? "" : "es"} to reach ${target}%.`;
+    }
+    return `<div class="subject-stat"><div class="subject-stat-top"><div><h4>${escapeHtml(subject)}</h4><span>${data.present}/${data.total} attended</span></div><strong class="${percentage >= target ? "good" : "bad"}">${percentage}%</strong></div><div class="progress"><span style="width:${Math.min(100, percentage)}%"></span><i style="left:${target}%"></i></div><p>${escapeHtml(advice)}</p></div>`;
+  }).join("") : '<div class="empty-state compact"><div class="empty-icon">📊</div><h3>No analytics yet</h3><p>Mark attendance and subject-wise stats will appear here.</p></div>';
+  $("target-summary").innerHTML = `<div class="target-number">${target}%</div><div><strong>Target</strong><p>Current overall: <b>${pct}%</b></p></div>`;
+}
+
+function renderHistory() {
+  const items = [...attendance].sort((a, b) => `${b.date} ${b.time || ""}`.localeCompare(`${a.date} ${a.time || ""}`));
+  $("history-list").innerHTML = items.length ? `<div class="history-table-wrap"><table class="history-table"><thead><tr><th>Date</th><th>Subject</th><th>Time</th><th>Status</th><th>Type</th><th></th></tr></thead><tbody>${items.map((item) => `<tr><td>${escapeHtml(item.date)}</td><td><strong>${escapeHtml(item.subject)}</strong></td><td>${escapeHtml(item.time || "—")}</td><td><span class="status-pill ${String(item.status).toLowerCase()}">${escapeHtml(item.status)}</span></td><td>${escapeHtml(item.type || "Regular")}</td><td><button type="button" class="text-btn danger" data-delete-att="${item.id}">Delete</button></td></tr>`).join("")}</tbody></table></div>` : '<div class="empty-state compact"><div class="empty-icon">✓</div><h3>No attendance logged</h3><p>Your attendance records will appear here.</p></div>';
+}
+
+function parseTime(value) {
+  const match = String(value).match(/\b(\d{1,2})(?:[:.](\d{2}))?\s*(AM|PM)?\b/i);
+  if (!match) return null;
+  let hour = Number(match[1]);
+  const minute = Number(match[2] || 0);
+  const meridiem = match[3]?.toUpperCase();
+  if (minute > 59 || hour > 23) return null;
+  if (meridiem === "PM" && hour < 12) hour += 12;
+  if (meridiem === "AM" && hour === 12) hour = 0;
+  if (!meridiem && hour < 7) hour += 12;
+  return `${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`;
+}
+function detectDay(line) { return DAYS.find((day) => line.toLowerCase().includes(day.toLowerCase())) || null; }
+function cleanSubject(value) { return String(value || "").replace(/[|•·]+/g, " ").replace(/\s+/g, " ").replace(/^[-–—:]+|[-–—:]+$/g, "").trim(); }
+
+// OCR is intentionally non-destructive: it creates editable candidates instead of guessing and writing to Firebase.
+function parseOCRText(text) {
+  const lines = String(text || "").split(/\r?\n/).map((line) => line.replace(/\s+/g, " ").trim()).filter(Boolean);
+  const rows = [];
+  let activeDay = null;
+  lines.forEach((line) => {
+    const day = detectDay(line);
+    if (day && line.length <= 30) { activeDay = day; return; }
+    const timeMatch = line.match(/\b\d{1,2}(?:[:.]\d{2})?\s*(?:AM|PM)?\b/i);
+    if (!timeMatch || !activeDay) return;
+    const time = parseTime(timeMatch[0]);
+    if (!time) return;
+    const subject = cleanSubject(line.replace(timeMatch[0], ""));
+    if (!subject || subject.length < 2 || /^(break|lunch|recess|holiday|free|off)$/i.test(subject)) return;
+    rows.push({ day: activeDay, time, subject, selected: true });
+  });
+  const seen = new Set();
+  return rows.filter((row) => { const key = `${row.day}|${row.time}|${row.subject.toLowerCase()}`; if (seen.has(key)) return false; seen.add(key); return true; });
+}
+
+function renderImportReview() {
+  const host = $("import-preview-list");
+  if (!importedRows.length) {
+    host.innerHTML = '<div class="empty-inline">Upload a timetable screenshot. Detected rows will appear here for review.</div>';
+    $("save-import-btn").disabled = true;
+    return;
+  }
+  host.innerHTML = importedRows.map((row, index) => `<div class="import-row"><input type="checkbox" data-import-check="${index}" ${row.selected ? "checked" : ""}><select data-import-day="${index}">${DAYS.map((day) => `<option ${day === row.day ? "selected" : ""}>${day}</option>`).join("")}</select><input type="time" data-import-time="${index}" value="${escapeHtml(row.time)}"><input type="text" data-import-subject="${index}" value="${escapeHtml(row.subject)}"><button type="button" class="text-btn danger" data-remove-import="${index}">Remove</button></div>`).join("");
+  $("save-import-btn").disabled = !importedRows.some((row) => row.selected && row.subject.trim() && row.time);
+}
+
+async function saveImportedRows() {
+  const selected = importedRows.filter((row) => row.selected && row.subject.trim() && row.time);
+  if (!selected.length) return;
+  try {
+    const batch = writeBatch(db);
+    selected.forEach((row) => { const ref = doc(collection(db, "timetables")); batch.set(ref, { uid: currentUser.uid, subject: row.subject.trim(), day: row.day, time: row.time }); });
+    await batch.commit();
+    importedRows = [];
+    renderImportReview();
+    $("ocr-status").textContent = `Saved ${selected.length} ${selected.length === 1 ? "class" : "classes"} to your timetable.`;
+    showToast("Imported timetable saved.", "success");
+  } catch (error) { console.error(error); showToast("Could not save the imported timetable. Check Firestore rules.", "error"); }
+}
+
+async function saveAttendance(status) {
+  const subject = $("att-subject").value;
+  const date = $("att-date").value;
+  const time = $("att-time").value;
+  const type = $("att-type").value;
+  if (!subject || !date || !time) { showToast("Choose a lecture, date and time first.", "warning"); return; }
+  if (findAttendance(subject, date, time)) { showToast("That lecture is already recorded for this date and time.", "warning"); return; }
+  await addDoc(collection(db, "attendance"), { uid: currentUser.uid, subject, date, time, status, type, timetableMatch: Boolean(findScheduledLecture(date, time)) });
+  showToast(`${status}: ${subject}`, status === "Present" ? "success" : "warning");
+}
+
+async function clearTimetable() {
+  if (!timetable.length) return;
+  if (!confirm(`Delete all ${timetable.length} timetable classes?`)) return;
+  try { const batch = writeBatch(db); timetable.forEach((item) => batch.delete(doc(db, "timetables", item.id))); await batch.commit(); showToast("Timetable cleared.", "success"); } catch (error) { console.error(error); showToast("Could not clear timetable.", "error"); }
+}
+
+async function addSampleTimetable() {
+  const sample = [["Monday","09:00","Constitutional Law I"],["Monday","10:00","Law of Contracts II"],["Tuesday","09:00","Consumer Behaviour"],["Tuesday","10:00","Management Accounting"],["Wednesday","09:00","The Bharatiya Nyaya Sanhita 2023"],["Wednesday","10:00","Macroeconomics"],["Thursday","09:00","Business Ethics & CSR"],["Thursday","10:00","Environmental Management"],["Friday","09:00","Constitutional Law I"],["Friday","10:00","Law of Contracts II"]];
+  try { const batch = writeBatch(db); sample.forEach(([day,time,subject]) => { const ref = doc(collection(db, "timetables")); batch.set(ref, { uid: currentUser.uid, day, time, subject }); }); await batch.commit(); showToast("Sample timetable added.", "info"); } catch (error) { console.error(error); showToast("Could not add sample timetable.", "error"); }
+}
+
+function bindEvents() {
+  if (eventsBound) return;
+  eventsBound = true;
+  document.querySelectorAll("[data-nav]").forEach((button) => button.onclick = () => switchView(button.dataset.nav));
+  bindGoButtons();
+  $("logout-btn").onclick = () => signOut(auth);
+  $("week-view-btn").onclick = () => switchView("timetable");
+  $("history-view-btn").onclick = () => switchView("history");
+  $("target-threshold").value = String(target);
+  $("target-threshold").onchange = (event) => { target = Number(event.target.value); localStorage.setItem("bunkhelper-target", String(target)); renderStats(); };
+  $("att-date").value = localISODate();
+  $("att-time").value = new Date().toTimeString().slice(0, 5);
+  ["att-date", "att-time"].forEach((id) => $(id).addEventListener("input", suggestLecture));
+  $("attendance-form").onsubmit = async (event) => { event.preventDefault(); try { await saveAttendance($("att-status").value); event.target.reset(); $("att-date").value = localISODate(); $("att-time").value = new Date().toTimeString().slice(0, 5); refreshSubjectDropdown(); suggestLecture(); } catch (error) { console.error(error); showToast("Could not save attendance. Check Firestore rules.", "error"); } };
+  $("quick-present").onclick = () => saveAttendance("Present").catch((e) => { console.error(e); showToast("Could not save attendance.", "error"); });
+  $("quick-absent").onclick = () => saveAttendance("Absent").catch((e) => { console.error(e); showToast("Could not save attendance.", "error"); });
+  $("timetable-form").onsubmit = async (event) => { event.preventDefault(); try { await addDoc(collection(db, "timetables"), { uid: currentUser.uid, subject: $("subject-input").value.trim(), day: $("day-input").value, time: $("time-input").value }); event.target.reset(); showToast("Class added to timetable.", "success"); } catch (error) { console.error(error); showToast("Could not add class. Check Firestore rules.", "error"); } };
+  $("clear-timetable-btn").onclick = clearTimetable;
+  $("sample-timetable-btn").onclick = addSampleTimetable;
+  $("export-btn").onclick = () => { const blob = new Blob([JSON.stringify({ exportedAt: new Date().toISOString(), target, timetable, attendance }, null, 2)], { type: "application/json" }); const url = URL.createObjectURL(blob); const a = document.createElement("a"); a.href = url; a.download = "bunkhelper-backup.json"; a.click(); URL.revokeObjectURL(url); showToast("Backup exported.", "success"); };
+  $("full-timetable").onclick = (event) => { const id = event.target.closest("[data-delete-tt]")?.dataset.deleteTt; if (id) deleteRecord("timetables", id); };
+  $("history-list").onclick = (event) => { const id = event.target.closest("[data-delete-att]")?.dataset.deleteAtt; if (id) deleteRecord("attendance", id); };
+  $("today-classes-list").onclick = (event) => { const chip = event.target.closest("[data-today-subject]"); if (!chip) return; switchView("attendance"); $("att-subject").value = chip.dataset.todaySubject; $("att-date").value = localISODate(); $("att-time").value = chip.dataset.todayTime; $("att-status").value = "Present"; suggestLecture(); };
+  $("upload-img-btn").onclick = () => $("ocr-file-input").click();
+  $("ocr-file-input").onchange = async (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    try {
+      $("ocr-status").textContent = "Reading screenshot…";
+      const worker = await Tesseract.createWorker("eng");
+      const result = await worker.recognize(file);
+      await worker.terminate();
+      const text = result.data.text || "";
+      $("ocr-preview").textContent = text.trim() || "No readable text found.";
+      $("ocr-preview-wrap").classList.remove("hidden");
+      importedRows = parseOCRText(text);
+      renderImportReview();
+      $("ocr-status").textContent = importedRows.length ? `Detected ${importedRows.length} candidate rows. Review them below before saving.` : "Text was read, but no timetable rows could be confidently identified.";
+      showToast(importedRows.length ? "Candidate timetable rows ready for review." : "OCR could not confidently identify timetable rows.", importedRows.length ? "success" : "warning");
+    } catch (error) { console.error(error); $("ocr-status").textContent = "OCR failed."; showToast("Could not read screenshot.", "error"); }
+    event.target.value = "";
+  };
+  $("save-import-btn").onclick = saveImportedRows;
+  $("import-preview-list").addEventListener("input", (event) => {
+    const index = Number(event.target.dataset.importTime ?? event.target.dataset.importSubject ?? event.target.dataset.importDay ?? event.target.dataset.importCheck);
+    if (!Number.isInteger(index) || !importedRows[index]) return;
+    if (event.target.dataset.importTime !== undefined) importedRows[index].time = event.target.value;
+    if (event.target.dataset.importSubject !== undefined) importedRows[index].subject = event.target.value;
+    if (event.target.dataset.importDay !== undefined) importedRows[index].day = event.target.value;
+    if (event.target.dataset.importCheck !== undefined) importedRows[index].selected = event.target.checked;
+    $("save-import-btn").disabled = !importedRows.some((row) => row.selected && row.subject.trim() && row.time);
+  });
+  $("import-preview-list").addEventListener("click", (event) => { const raw = event.target.closest("[data-remove-import]")?.dataset.removeImport; if (raw === undefined) return; importedRows.splice(Number(raw), 1); renderImportReview(); });
+}
+
+async function deleteRecord(collectionName, id) { if (!confirm("Delete this record?")) return; try { await deleteDoc(doc(db, collectionName, id)); } catch (error) { console.error(error); showToast("Could not delete record.", "error"); } }
+
+function startListeners() {
+  if (unsubscribeTimetable) unsubscribeTimetable();
+  if (unsubscribeAttendance) unsubscribeAttendance();
+  unsubscribeTimetable = onSnapshot(query(collection(db, "timetables"), where("uid", "==", currentUser.uid)), (snapshot) => {
+    timetable = sortClasses(snapshot.docs.map((item) => ({ id: item.id, ...item.data() })));
+    renderToday(); renderMiniTimetable(); renderTimetable(); refreshSubjectDropdown(); suggestLecture();
+  }, (error) => { console.error(error); showToast("Timetable could not be loaded. Check Firebase/Firestore rules.", "error"); });
+  unsubscribeAttendance = onSnapshot(query(collection(db, "attendance"), where("uid", "==", currentUser.uid)), (snapshot) => {
+    attendance = snapshot.docs.map((item) => ({ id: item.id, ...item.data() }));
+    renderStats(); renderHistory(); renderToday();
+  }, (error) => { console.error(error); showToast("Attendance could not be loaded. Check Firebase/Firestore rules.", "error"); });
+}
+
+function signedIn(user) {
+  currentUser = user;
+  $("auth-screen").classList.add("hidden");
+  $("app-screen").classList.remove("hidden");
+  $("user-name").textContent = user.displayName || user.email || "Student";
+  $("user-avatar").src = user.photoURL || "https://ui-avatars.com/api/?name=Student&background=171c2d&color=fff";
+  bindEvents();
+  startListeners();
+  switchView("dashboard");
+}
+function signedOut() {
+  currentUser = null;
+  timetable = [];
+  attendance = [];
+  if (unsubscribeTimetable) unsubscribeTimetable();
+  if (unsubscribeAttendance) unsubscribeAttendance();
+  $("auth-screen").classList.remove("hidden");
+  $("app-screen").classList.add("hidden");
+}
+
+$("login-btn").onclick = async () => { try { await setPersistence(auth, browserLocalPersistence); await signInWithPopup(auth, new GoogleAuthProvider()); } catch (error) { console.error(error); showToast(`Login failed: ${error.message}`, "error"); } };
+onAuthStateChanged(auth, (user) => user ? signedIn(user) : signedOut());
