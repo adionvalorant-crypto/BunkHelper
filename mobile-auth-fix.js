@@ -1,7 +1,0 @@
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-import { getAuth, setPersistence, browserLocalPersistence, signInWithPopup, signInWithRedirect, GoogleAuthProvider } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
-
-const firebaseConfig={apiKey:"AIzaSyDnneTFty97_4QmcRFOV58AqDUTmzwqtLo",authDomain:"bunkhelper-7ae5b.firebaseapp.com",projectId:"bunkhelper-7ae5b",storageBucket:"bunkhelper-7ae5b.firebasestorage.app",messagingSenderId:"377239213325",appId:"1:377239213325:web:7fab96687d9f5585318c44",measurementId:"G-7ZSZX0SLEH"};
-const auth=getAuth(initializeApp(firebaseConfig));
-const login=document.getElementById("login-btn");
-if(login){login.onclick=async()=>{login.disabled=true;login.textContent="Signing in…";try{await setPersistence(auth,browserLocalPersistence);const provider=new GoogleAuthProvider();const mobile=window.matchMedia("(max-width:700px)").matches||/Android|iPhone|iPad|iPod/i.test(navigator.userAgent);if(mobile)await signInWithRedirect(auth,provider);else await signInWithPopup(auth,provider)}catch(e){console.error("Google sign-in failed",e);login.disabled=false;login.textContent="Continue with Google";alert(`Google sign-in failed: ${e.code||e.message}`)}}}
