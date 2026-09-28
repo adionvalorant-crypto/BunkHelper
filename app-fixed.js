@@ -3,7 +3,7 @@ const style = document.createElement('style');
 style.id = 'bunkhelper-layout-patch';
 style.textContent = `
 *,*::before,*::after{box-sizing:border-box}html,body{width:100%;min-width:0;overflow-x:hidden}*,*::before,*::after{backdrop-filter:none!important;-webkit-backdrop-filter:none!important}
-body{margin:0!important}
+body{margin:0!important}.auth,.auth-card,#login-btn{pointer-events:auto!important;position:relative!important}.auth{z-index:9990!important}.auth-card{z-index:9991!important}#login-btn{z-index:9992!important;touch-action:manipulation!important}
 .topbar{width:100vw!important;left:0!important;right:0!important}
 .layout{display:block!important;width:100%!important;min-height:100vh!important}
 .sidebar{position:fixed!important;left:0!important;top:74px!important;bottom:0!important;width:236px!important;height:auto!important;overflow-y:auto!important;overflow-x:hidden!important}
