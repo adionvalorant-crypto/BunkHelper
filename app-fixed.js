@@ -112,6 +112,30 @@ function ocrText(s){return String(s||"").replace(/\\s+/g," ").trim()}
 function ocrDay(s){const n=ocrText(s).toLowerCase();return OCR_DAYS.find(d=>n.includes(d.toLowerCase()))||""}
 function ocrTime(s){const n=ocrText(s).replace(/[Oo]/g,"0").replace(/[–—−]/g,"-").replace(/\\s+/g,"");const m=n.match(/(\\d{1,2}):?(\\d{2})-(\\d{1,2}):?(\\d{2})/);if(!m)return-1;const h=Number(m[1]);return SLOTS.findIndex(x=>Number(x.slice(0,2))===h)}
 function ocrSubject(s){let raw=ocrText(s).replace(/\\(\\s*T\\s*\\)/ig,"").trim(),best=raw,score=0;const n=raw.toLowerCase();for(const x of OCR_SUBJECTS){const words=x.toLowerCase().split(/\\s+/).filter(w=>w.length>2),hit=words.filter(w=>n.includes(w)).length/Math.max(1,words.length);if(hit>score){score=hit;best=x}}return score>=.55?best:raw}
+function parseOCRGrid(data){
+const words=(data?.words||[]).filter(w=>w&&String(w.text||"").trim()&&w.bbox);
+const pts=words.map(w=>({text:ocrText(w.text),x:(w.bbox.x0+w.bbox.x1)/2,y:(w.bbox.y0+w.bbox.y1)/2}));
+const days=OCR_DAYS.map(day=>{const a=pts.filter(p=>ocrDay(p.text)===day);return a.length?{day,y:a.reduce((s,p)=>s+p.y,0)/a.length}:null}).filter(Boolean).sort((a,b)=>a.y-b.y);
+const times=[];for(const p of pts){const ti=ocrTime(p.text);if(ti>=0)times.push({i:ti,x:p.x})}
+const xs=Array(8);for(const p of times)if(xs[p.i]==null)xs[p.i]=p.x;
+const known=xs.filter(x=>x!=null);if(days.length<3||known.length<3)return[];
+const step=known.length>1?(known[known.length-1]-known[0])/(known.length-1):100;
+for(let i=0;i<8;i++)if(xs[i]==null)xs[i]=known[0]+step*i;
+const xb=Array.from({length:9},(_,i)=>i===0?xs[0]-step/2:i===8?xs[7]+step/2:(xs[i-1]+xs[i])/2);
+const ys=days.map(x=>x.y);
+const ystep=days.length>1?Math.abs(ys[1]-ys[0]):100;
+const yb=Array.from({length:days.length+1},(_,i)=>i===0?ys[0]-ystep/2:i===days.length?ys[ys.length-1]+ystep/2:(ys[i-1]+ys[i])/2);
+const out=[];
+for(let r=0;r<days.length;r++)for(let col=0;col<8;col++){
+const cell=pts.filter(p=>p.x>=xb[col]&&p.x<xb[col+1]&&p.y>=yb[r]&&p.y<yb[r+1]);
+const text=cell.sort((a,b)=>a.y-b.y||a.x-b.x).map(p=>p.text).join(" ");
+if(!text||text.toLowerCase()==="break"||text.toLowerCase()==="lunch")continue;
+const tutorial=text.toLowerCase().includes("(t)");
+const subject=ocrSubject(text.replace("(T)","").replace("(t)",""));
+if(subject.length>=3)out.push({day:days[r].day,time:SLOTS[col],subject,category:tutorial?"tutorial":"normal",selected:true})}
+return out.filter((x,i,a)=>a.findIndex(y=>y.day===x.day&&y.time===x.time)===i)
+}
+function stageOCR(data){const rows=parseOCRGrid(data);if(rows.length<3)throw new Error("Could not detect enough timetable cells.");staged=rows;renderStaged();return rows.length}
 function stageTemplate(){staged=[];DAYS.forEach(d=>Object.entries(TEMPLATE[d]||{}).forEach(([time,[subject,category]])=>staged.push({day:d,time,subject,category,selected:true})));renderStaged()}
 function renderStaged(){const c=$("import-card");if(!staged.length){c.classList.add("hidden");return}c.classList.remove("hidden");$("import-message").textContent=`${staged.length} classes staged. Review before saving.`;$("import-list").innerHTML=staged.map((x,i)=>`<div class="import-row"><input type="checkbox" data-check="${i}" ${x.selected?"checked":""}><select data-day="${i}">${DAYS.map(d=>`<option ${d===x.day?"selected":""}>${d}</option>`).join("")}</select><select data-time="${i}">${SLOTS.map((t,j)=>`<option value="${t}" ${t===x.time?"selected":""}>${TIME_LABELS[j]}</option>`).join("")}</select><select data-category="${i}"><option value="normal" ${x.category==="normal"?"selected":""}>Lecture</option><option value="tutorial" ${x.category==="tutorial"?"selected":""}>Tutorial</option></select><input type="text" data-subject="${i}" value="${esc(x.subject)}"><button class="btn" type="button" data-remove="${i}">Remove</button></div>`).join("");$("save-import").disabled=!staged.some(x=>x.selected&&x.subject.trim())}
 async function saveStage(){const rows=staged.filter(x=>x.selected&&x.subject.trim());if(!rows.length)return;try{const b=writeBatch(db);if($("replace-current").checked)timetable.forEach(x=>b.delete(doc(db,"timetables",x.id)));rows.forEach(x=>{const r=doc(collection(db,"timetables"));b.set(r,{uid:user.uid,subject:x.subject.trim(),day:x.day,time:x.time,category:x.category||(/\(T\)\s*$/i.test(x.subject)?"tutorial":"normal"),kind:"class"})});await b.commit();staged=[];renderStaged();await refreshData();toast("Timetable saved.","success")}catch(e){console.error(e);toast("Could not save timetable.","error")}}
