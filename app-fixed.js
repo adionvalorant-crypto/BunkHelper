@@ -109,33 +109,45 @@ function renderHistory(){$("history-list").innerHTML=attendance.length?`<div cla
 const OCR_DAYS=["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
 const OCR_SUBJECTS=["International Relations","Sociology of Law","Indian Political Thought","Macroeconomics","The Bharatiya Nyaya Sanhita 2023 (IPC)","Law of Contracts II","Constitutional Law I","History of Modern India & Europe"];
 function ocrText(s){return String(s||"").replace(/\s+/g," ").trim()}
-function ocrDay(s){const n=ocrText(s).toLowerCase();return OCR_DAYS.find(d=>n.includes(d.toLowerCase()))||""}
-function ocrTime(s){const n=ocrText(s).replace(/[Oo]/g,"0").replace(/[–—−]/g,"-").replace(/\s+/g,"");const m=n.match(/(\d{1,2}):?(\d{2})-(\d{1,2}):?(\d{2})/);if(!m)return-1;const h=Number(m[1]);return SLOTS.findIndex(x=>Number(x.slice(0,2))===h)}
-function ocrSubject(s){let raw=ocrText(s).replace(/\(\\s*T\\s*\)/ig,"").trim(),best=raw,score=0;const n=raw.toLowerCase();for(const x of OCR_SUBJECTS){const words=x.toLowerCase().split(/\s+/).filter(w=>w.length>2),hit=words.filter(w=>n.includes(w)).length/Math.max(1,words.length);if(hit>score){score=hit;best=x}}return score>=.55?best:raw}
+function ocrNorm(s){return ocrText(s).toLowerCase().replace(/[^a-z0-9]+/g,"")}
+function ocrDistance(a,b){a=ocrNorm(a);b=ocrNorm(b);if(!a||!b)return 99;const d=Array.from({length:a.length+1},()=>Array(b.length+1).fill(0));for(let i=0;i<=a.length;i++)d[i][0]=i;for(let j=0;j<=b.length;j++)d[0][j]=j;for(let i=1;i<=a.length;i++)for(let j=1;j<=b.length;j++)d[i][j]=Math.min(d[i-1][j]+1,d[i][j-1]+1,d[i-1][j-1]+(a[i-1]===b[j-1]?0:1));return d[a.length][b.length]}
+function ocrDay(s){const raw=ocrText(s);const n=ocrNorm(raw);let best="",score=0;for(const d of OCR_DAYS){const dn=ocrNorm(d);const sim=1-ocrDistance(n,dn)/Math.max(n.length,dn.length);if(n.includes(dn)||dn.includes(n))return d;if(sim>score){score=sim;best=d}}return score>=.68?best:""}
+function ocrTime(s){const n=ocrText(s).replace(/[Oo]/g,"0").replace(/[Il]/g,"1").replace(/[–—−]/g,"-").replace(/\s+/g,"");const m=n.match(/(\d{1,2}):?(\d{2})-(\d{1,2}):?(\d{2})/);if(!m)return-1;const h=Number(m[1]),i=SLOTS.findIndex(x=>Number(x.slice(0,2))===h);return i}
+function ocrSubject(s){const raw=ocrText(s).replace(/\(\s*T\s*\)/ig,"").trim(),n=ocrNorm(raw);if(!n)return"";let best="",score=0;for(const x of OCR_SUBJECTS){const words=x.toLowerCase().split(/\s+/).filter(w=>w.length>2);const hit=words.reduce((sum,w)=>sum+(n.includes(ocrNorm(w))?1:0),0)/Math.max(1,words.length);const sim=1-ocrDistance(n,ocrNorm(x))/Math.max(n.length,ocrNorm(x).length);const s=Math.max(hit,sim);if(s>score){score=s;best=x}}return score>=.42?best:""}
 function parseOCRGrid(data){
-const words=(data?.words||[]).filter(w=>w&&String(w.text||"").trim()&&w.bbox);
-const pts=words.map(w=>({text:ocrText(w.text),x:(w.bbox.x0+w.bbox.x1)/2,y:(w.bbox.y0+w.bbox.y1)/2}));
-const days=OCR_DAYS.map(day=>{const a=pts.filter(p=>ocrDay(p.text)===day);return a.length?{day,y:a.reduce((s,p)=>s+p.y,0)/a.length}:null}).filter(Boolean).sort((a,b)=>a.y-b.y);
-const times=[];for(const p of pts){const ti=ocrTime(p.text);if(ti>=0)times.push({i:ti,x:p.x})}
-const xs=Array(8);for(const p of times)if(xs[p.i]==null)xs[p.i]=p.x;
-const known=xs.filter(x=>x!=null);if(days.length<3||known.length<3)return[];
-const step=known.length>1?(known[known.length-1]-known[0])/(known.length-1):100;
-for(let i=0;i<8;i++)if(xs[i]==null)xs[i]=known[0]+step*i;
-const xb=Array.from({length:9},(_,i)=>i===0?xs[0]-step/2:i===8?xs[7]+step/2:(xs[i-1]+xs[i])/2);
-const ys=days.map(x=>x.y);
-const ystep=days.length>1?Math.abs(ys[1]-ys[0]):100;
-const yb=Array.from({length:days.length+1},(_,i)=>i===0?ys[0]-ystep/2:i===days.length?ys[ys.length-1]+ystep/2:(ys[i-1]+ys[i])/2);
-const out=[];
-for(let r=0;r<days.length;r++)for(let col=0;col<8;col++){
-const cell=pts.filter(p=>p.x>=xb[col]&&p.x<xb[col+1]&&p.y>=yb[r]&&p.y<yb[r+1]);
-const text=cell.sort((a,b)=>a.y-b.y||a.x-b.x).map(p=>p.text).join(" ");
-if(!text||text.toLowerCase()==="break"||text.toLowerCase()==="lunch")continue;
-const tutorial=text.toLowerCase().includes("(t)");
-const subject=ocrSubject(text.replace("(T)","").replace("(t)",""));
-if(subject.length>=3)out.push({day:days[r].day,time:SLOTS[col],subject,category:tutorial?"tutorial":"normal",selected:true})}
-return out.filter((x,i,a)=>a.findIndex(y=>y.day===x.day&&y.time===x.time)===i)
+ const words=(data?.words||[]).filter(w=>w&&String(w.text||"").trim()&&w.bbox);
+ const pts=words.map(w=>({text:ocrText(w.text),x:(w.bbox.x0+w.bbox.x1)/2,y:(w.bbox.y0+w.bbox.y1)/2}));
+ const dayPts=[];
+ for(const p of pts){const day=ocrDay(p.text);if(day)dayPts.push({...p,day})}
+ const dayMap=new Map();
+ for(const day of OCR_DAYS){const a=dayPts.filter(p=>p.day===day);if(a.length)dayMap.set(day,a.reduce((sum,p)=>sum+p.y,0)/a.length)}
+ const days=Array.from(dayMap.entries()).map(([day,y])=>({day,y})).sort((a,b)=>a.y-b.y);
+ const times=[];
+ for(const p of pts){const ti=ocrTime(p.text);if(ti>=0)times.push({i:ti,x:p.x})}
+ const xs=Array(8);
+ for(const p of times)if(xs[p.i]==null)xs[p.i]=p.x;
+ const known=xs.filter(x=>x!=null);
+ if(days.length<3||known.length<3)return[];
+ const step=known.length>1?(known[known.length-1]-known[0])/(known.length-1):100;
+ for(let i=0;i<8;i++)if(xs[i]==null)xs[i]=known[0]+step*i;
+ const xb=Array.from({length:9},(_,i)=>i===0?xs[0]-step/2:i===8?xs[7]+step/2:(xs[i-1]+xs[i])/2);
+ const ys=days.map(x=>x.y);
+ const ystep=days.length>1?ys.slice(1).reduce((sum,y,i)=>sum+Math.abs(y-ys[i]),0)/(ys.length-1):100;
+ const yb=Array.from({length:days.length+1},(_,i)=>i===0?ys[0]-ystep/2:i===days.length?ys[ys.length-1]+ystep/2:(ys[i-1]+ys[i])/2);
+ const out=[];
+ for(let r=0;r<days.length;r++)for(let col=0;col<8;col++){
+   if(col===3)continue;
+   const cell=pts.filter(p=>p.x>=xb[col]&&p.x<xb[col+1]&&p.y>=yb[r]&&p.y<yb[r+1]);
+   const text=cell.sort((a,b)=>a.y-b.y||a.x-b.x).map(p=>p.text).join(" ");
+   if(!text||/\b(break|lunch)\b/i.test(text)||/\d{1,2}:?\d{2}-\d{1,2}:?\d{2}/.test(text))continue;
+   const subject=ocrSubject(text);
+   if(!subject)continue;
+   const tutorial=/\(\s*T\s*\)/i.test(text);
+   out.push({day:days[r].day,time:SLOTS[col],subject,category:tutorial?"tutorial":"normal",selected:true})
+ }
+ return out.filter((x,i,a)=>a.findIndex(y=>y.day===x.day&&y.time===x.time)===i)
 }
-function stageOCR(data){const rows=parseOCRGrid(data);if(rows.length<3)throw new Error("Could not detect enough timetable cells.");staged=rows;renderStaged();return rows.length}
+function stageOCR(data){const rows=parseOCRGrid(data);if(rows.length<3)throw new Error("Could not detect enough timetable cells. Make sure the full timetable grid is visible.");staged=rows;renderStaged();return rows.length}
 function stageTemplate(){staged=[];DAYS.forEach(d=>Object.entries(TEMPLATE[d]||{}).forEach(([time,[subject,category]])=>staged.push({day:d,time,subject,category,selected:true})));renderStaged()}
 function renderStaged(){const c=$("import-card");if(!staged.length){c.classList.add("hidden");return}c.classList.remove("hidden");$("import-message").textContent=`${staged.length} classes staged. Review before saving.`;$("import-list").innerHTML=staged.map((x,i)=>`<div class="import-row"><input type="checkbox" data-check="${i}" ${x.selected?"checked":""}><select data-day="${i}">${DAYS.map(d=>`<option ${d===x.day?"selected":""}>${d}</option>`).join("")}</select><select data-time="${i}">${SLOTS.map((t,j)=>`<option value="${t}" ${t===x.time?"selected":""}>${TIME_LABELS[j]}</option>`).join("")}</select><select data-category="${i}"><option value="normal" ${x.category==="normal"?"selected":""}>Lecture</option><option value="tutorial" ${x.category==="tutorial"?"selected":""}>Tutorial</option></select><input type="text" data-subject="${i}" value="${esc(x.subject)}"><button class="btn" type="button" data-remove="${i}">Remove</button></div>`).join("");$("save-import").disabled=!staged.some(x=>x.selected&&x.subject.trim())}
 async function saveStage(){const rows=staged.filter(x=>x.selected&&x.subject.trim());if(!rows.length)return;try{const b=writeBatch(db);if($("replace-current").checked)timetable.forEach(x=>b.delete(doc(db,"timetables",x.id)));rows.forEach(x=>{const r=doc(collection(db,"timetables"));b.set(r,{uid:user.uid,subject:x.subject.trim(),day:x.day,time:x.time,category:x.category||(/\(T\)\s*$/i.test(x.subject)?"tutorial":"normal"),kind:"class"})});await b.commit();staged=[];renderStaged();await refreshData();toast("Timetable saved.","success")}catch(e){console.error(e);toast("Could not save timetable.","error")}}
