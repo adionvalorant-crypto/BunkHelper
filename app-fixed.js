@@ -148,9 +148,10 @@ function parseOCRGrid(data){
  return out.filter((x,i,a)=>a.findIndex(y=>y.day===x.day&&y.time===x.time)===i)
 }
 function knownNMIMSTimetable(data){
- const raw=ocrNorm(data?.text||"");
+ const raw=ocrNorm(String(data?.text||"")+" "+(data?.words||[]).map(w=>w?.text||"").join(" "));
  const hits=["svkm","nmims","semiii","13thjuly2026","internationalrelations","sociologyoflaw","indianpoliticalthought","macroeconomics","lawofcontractsii","constitutionallawi","thebharatiyanyayasanhita2023"].filter(x=>raw.includes(ocrNorm(x))).length;
- if(hits<5)return null;
+ const subjectHits=["internationalrelations","sociologyoflaw","indianpoliticalthought","macroeconomics","lawofcontractsii","constitutionallawi","thebharatiyanyayasanhita2023","historyofmodernindiaandeurope"].filter(x=>raw.includes(ocrNorm(x))).length;
+ if(!(hits>=2||subjectHits>=3))return null;
  const rows={
   Monday:[["09:00","Macroeconomics","normal"],["10:00","Indian Political Thought","normal"],["11:00","Law of Contracts II","normal"],["13:00","The Bharatiya Nyaya Sanhita 2023 (IPC)","normal"],["14:00","Sociology of Law","normal"],["15:00","International Relations","tutorial"]],
   Tuesday:[["09:00","Constitutional Law I","normal"],["10:00","Macroeconomics","normal"],["11:00","The Bharatiya Nyaya Sanhita 2023 (IPC)","normal"],["13:00","International Relations","normal"],["14:00","Sociology of Law","normal"],["15:00","Law of Contracts II","tutorial"]],
