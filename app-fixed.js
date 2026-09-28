@@ -110,8 +110,8 @@ const OCR_DAYS=["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
 const OCR_SUBJECTS=["International Relations","Sociology of Law","Indian Political Thought","Macroeconomics","The Bharatiya Nyaya Sanhita 2023 (IPC)","Law of Contracts II","Constitutional Law I","History of Modern India & Europe"];
 function ocrText(s){return String(s||"").replace(/\s+/g," ").trim()}
 function ocrDay(s){const n=ocrText(s).toLowerCase();return OCR_DAYS.find(d=>n.includes(d.toLowerCase()))||""}
-function ocrTime(s){const n=ocrText(s).replace(/[Oo]/g,"0").replace(/[–—−]/g,"-").replace(/\s+/g,"");const m=n.match(/(\\d{1,2}):?(\\d{2})-(\\d{1,2}):?(\\d{2})/);if(!m)return-1;const h=Number(m[1]);return SLOTS.findIndex(x=>Number(x.slice(0,2))===h)}
-function ocrSubject(s){let raw=ocrText(s).replace(/\\(\\s*T\\s*\\)/ig,"").trim(),best=raw,score=0;const n=raw.toLowerCase();for(const x of OCR_SUBJECTS){const words=x.toLowerCase().split(/\s+/).filter(w=>w.length>2),hit=words.filter(w=>n.includes(w)).length/Math.max(1,words.length);if(hit>score){score=hit;best=x}}return score>=.55?best:raw}
+function ocrTime(s){const n=ocrText(s).replace(/[Oo]/g,"0").replace(/[–—−]/g,"-").replace(/\s+/g,"");const m=n.match(/(\d{1,2}):?(\d{2})-(\d{1,2}):?(\d{2})/);if(!m)return-1;const h=Number(m[1]);return SLOTS.findIndex(x=>Number(x.slice(0,2))===h)}
+function ocrSubject(s){let raw=ocrText(s).replace(/\(\\s*T\\s*\)/ig,"").trim(),best=raw,score=0;const n=raw.toLowerCase();for(const x of OCR_SUBJECTS){const words=x.toLowerCase().split(/\s+/).filter(w=>w.length>2),hit=words.filter(w=>n.includes(w)).length/Math.max(1,words.length);if(hit>score){score=hit;best=x}}return score>=.55?best:raw}
 function parseOCRGrid(data){
 const words=(data?.words||[]).filter(w=>w&&String(w.text||"").trim()&&w.bbox);
 const pts=words.map(w=>({text:ocrText(w.text),x:(w.bbox.x0+w.bbox.x1)/2,y:(w.bbox.y0+w.bbox.y1)/2}));
