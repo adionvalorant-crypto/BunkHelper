@@ -85,7 +85,7 @@ for(let n=1;n<=last;n++){
 const d=new Date(y,m,n),key=dateKey(d),day=d.toLocaleDateString("en-US",{weekday:"long"}),scheduled=sort(timetable.filter(x=>x.day===day));
 const selected=key===calendarSelected,isToday=key===localDate();
 let items="";
-scheduled.forEach(x=>{const r=attendanceDayIndex.get(key+"\\0"+x.subject+"\\0"+x.time+"\\0"+x.category),cls=r?.status==="Present"?"present":r?.status==="Absent"?"absent":r?.status==="Cancelled"?"cancelled":"unmarked";items+="<span class=\"cal-lecture "+cls+"\" title=\""+esc(x.subject)+" · "+fmt(x.time)+"\">"+esc(abbr(x.subject))+"</span>"});
+scheduled.forEach(x=>{const r=attendanceDayIndex.get(key+"\0"+x.subject+"\0"+x.time+"\0"+x.category),cls=r?.status==="Present"?"present":r?.status==="Absent"?"absent":r?.status==="Cancelled"?"cancelled":"unmarked";items+="<span class=\"cal-lecture "+cls+"\" title=\""+esc(x.subject)+" · "+fmt(x.time)+"\">"+esc(abbr(x.subject))+"</span>"});
 cells.push("<button type=\"button\" class=\"calendar-day "+(selected?"selected ":"")+(isToday?"today":"")+"\" data-cal-date=\""+key+"\"><span class=\"cal-num\">"+n+"</span><span class=\"cal-items\">"+(items||"<span class=\"cal-none\">—</span>")+"</span></button>");
 }
 $("calendar-month").textContent=calendarDate.toLocaleDateString("en-US",{month:"long",year:"numeric"});
